@@ -351,11 +351,32 @@ body {
 .project-links a {
   color: var(--text-muted);
   font-size: 1.2rem;
-  transition: color var(--transition);
+  transition: color var(--transition), transform var(--transition);
 }
 
 .project-links a:hover {
   color: var(--primary);
+  transform: scale(1.15);
+}
+
+.project-links .btn-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  background: linear-gradient(135deg, var(--primary), #764ba2);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+
+.project-links .btn-play:hover {
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  transform: translateY(-2px);
 }
 
 /* Contact */

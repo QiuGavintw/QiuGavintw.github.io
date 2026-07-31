@@ -1,0 +1,1978 @@
+<!DOCTYPE html>
+<html>
+
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>貪吃蛇</title>
+
+  <style>
+    body {
+  background: #111111;
+  color: #fff3b0;
+  text-align: center;
+  font-family: "Courier New", monospace;
+  image-rendering: pixelated;
+  background-image: repeating-linear-gradient(0deg, #222222 0, #222222 1px, transparent 1px, transparent 20px),
+                    repeating-linear-gradient(90deg, #222222 0, #222222 1px, transparent 1px, transparent 20px);
+}
+
+h1 {
+  font-size: 42px;
+  color: #ffd700;
+  text-shadow: 3px 3px #8b5a00, 6px 6px #000;
+  letter-spacing: 4px;
+}
+
+.game-panel {
+  width: 300px;
+  background: #0a0a0a;
+  border: 4px solid #0ff;
+  padding: 12px;
+  box-shadow: 0 0 15px #0ff, inset 0 0 8px #0ff;
+}
+
+.game-panel h2 {
+  color: #ffd700;
+}
+
+  .guide {
+    text-align: left;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+.btn-group {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin: 15px 0;
+}
+
+button {
+  padding: 12px 25px;
+  font-size: 20px;
+  font-weight: bold;
+  font-family: "Courier New", monospace;
+  background: #000;
+  color: #0ff;
+  border: 2px solid #0ff;
+  box-shadow: 0 0 8px #0ff, inset 0 0 4px #0ff;
+  cursor: pointer;
+  text-shadow: 0 0 5px #0ff;
+}
+
+button:hover {
+  background: #111;
+  box-shadow: 0 0 12px #0ff, inset 0 0 6px #0ff;
+}
+
+button:active {
+  transform: translate(3px, 3px);
+  box-shadow: 2px 2px #000;
+}
+
+button#start2PBtn {
+  background: #000;
+  border-color: #333;
+  color: #0ff;
+}
+
+button#start2PBtn:hover {
+  background: #80ecff;
+}
+
+button#startAIBtn {
+  background: #000;
+  border-color: #333;
+  color: #f44;
+}
+
+button#startAIBtn:hover {
+  background: #ff8080;
+}
+
+/* --- 下方為本次修改重點 --- */
+#countdown {
+  height: 45px;
+  font-size: 40px;
+  color: #ff5555;
+  text-shadow: 3px 3px #000;
+  /* 原本為 margin: 5px 0; 
+     改為下方留出 30px 的大空白，讓文字與畫布拉開距離 */
+  margin: 10px 0 20px 0; 
+}
+
+canvas {
+  background: #000;
+  border: 4px solid #0ff;
+  image-rendering: pixelated;
+  box-shadow: 0 0 12px #0ff, inset 0 0 6px #0ff;
+  margin: 15px auto;
+}
+/* --- 修改重點結束 --- */
+
+.score-panel {
+  margin-top: 20px;
+  font-size: 22px;
+  font-weight: bold;
+}
+
+#scoreDisplay {
+  color: #7cff00;
+  font-size: 26px;
+}
+
+#scoreDisplayP2 {
+  font-size: 26px;
+}
+
+#status {
+  color: #ffd700;
+  font-size: 20px;
+}
+  .game-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 25px;
+  margin-top: 15px;
+}
+        .vortex-effect {
+            animation: vortexAnim 3s ease-out forwards;
+        }
+        @keyframes vortexAnim {
+            from { transform: rotate(0deg) scale(1); }
+            to { transform: rotate(1080deg) scale(0); }
+        }
+        /* 主題樣式 */
+        .theme-pixel body { background:#222; color:#fff; font-family:"Courier New",monospace; }
+        .theme-pixel canvas { border:4px solid #fff; }
+        .theme-retro body { background:#341; color:#ffb; }
+        .theme-retro canvas { border:4px solid #b85; }
+    /* 主題按鈕樣式 */
+    .theme-default .btn-group button { background:#000; color:#0ff; border:2px solid #0ff; }
+    .theme-pixel .btn-group button { background:#222; color:#fff; border:2px solid #fff; }
+    .theme-retro .btn-group button { background:#331; color:#ffb; border:2px solid #ffb; }
+    </style>
+    <style>
+      /* 主題樣式差異化 */
+      .theme-pixel body { background:#222; color:#fff; font-family:"Courier New",monospace; }
+      .theme-pixel .btn-group button { background:#555; color:#fff; border-color:#fff; }
+      .theme-pixel canvas { background:#333; border-color:#fff; }
+      .theme-retro body { background:#341; color:#ffb; }
+      .theme-retro .btn-group button { background:#550; color:#ffb; border-color:#ffb; }
+      .theme-retro canvas { background:#221; border-color:#ffb; }
+    </style>
+
+  
+</head>
+<body>
+  <h1>🐍 貪吃蛇 GAME</h1>
+
+<!-- 遊戲說明 -->
+<div class="game-wrapper">
+<div class="game-panel">
+  <h2>📖 遊戲說明</h2>
+  <div class="guide">
+    <p>🟩 1P 玩家：方向鍵控制，顏色綠色</p>
+    <p id="p2Instruction" style="display:none;">🟦 2P 玩家：WASD 控制，顏色藍色</p>
+    <p>🍎 紅色果實：增加 1 節</p>
+    <p>❓ 紅色問號：觸發數學挑戰</p>
+    <p>   ✅ 答對：蛇尾增加 5 節</p>
+    <p>   ❌ 答錯 / 超時：爆炸失敗</p>
+    <p>☠️ 紫色毒果：減少 5 節</p>
+    <p>🟣 紫紅方塊（磁鐵）：吸引附近果實靠近蛇頭，持續 5 秒</p>
+    <p>🟠 橙色方塊（護盾）：抵擋一次毒果傷害</p>
+    <p>💣 Lv.4 起出現定時炸彈區，倒數後有流星落下攻擊，等級越高範圍越大</p>
+    <p id="battleRules" style="display:none;">⚔️ 對戰規則：撞牆、自撞或撞到對方身體即判定失敗！</p>
+  </div>
+</div>
+
+
+
+<!-- 遊戲畫布 -->
+<canvas id="gameCanvas" width="500" height="500"></canvas>
+<div style="display:inline-block;vertical-align:top;">
+<div id="scoreSidebar" style="background:#111;border:1px solid #444;border-radius:6px;padding:12px;min-width:150px;font-family:monospace;font-size:13px;">
+  <div style="color:#ffd700;font-weight:bold;font-size:15px;margin-bottom:8px;text-align:center;">📊 遊戲分數</div>
+  <div id="sb1P" style="color:#20ff20;margin-bottom:4px;">🟩 1P: 0 Lv.0</div>
+  <div id="sb2P" style="color:#00d8ff;margin-bottom:4px;display:none;">🟦 2P: 0 Lv.0</div>
+  <div id="sbAI" style="color:#ff4444;margin-bottom:4px;display:none;">🤖 AI: 0 Lv.0</div>
+  <div id="sbHigh" style="color:#ffd700;border-top:1px solid #333;padding-top:4px;margin-top:4px;">🏆 最高分: 1 Lv.1</div>
+</div>
+<div id="achSidebar" style="margin-top:10px;background:#111;border:1px solid #444;border-radius:6px;padding:12px;min-width:150px;font-family:monospace;font-size:12px;text-align:left;"></div>
+</div>
+</div>
+
+<!-- 開始按鈕區 -->
+    <div class="btn-group">
+      <button id="start1PBtn">👤 單人遊玩</button>
+      <button id="start2PBtn">👤 雙人對戰</button>
+      <button id="startAIBtn">🤖 AI 對戰</button>
+    </div>
+    <div class="control-panel" style="margin-top:15px;">
+      <label>主題:
+        <select id="themeSelect">
+          <option value="default">Default</option>
+          <option value="pixel">像素</option>
+          <option value="retro">復古</option>
+        </select>
+      </label>
+      <label style="margin-left:10px;">音效套件:
+        <select id="audioSelect">
+          <option value="electronic">Electronic</option>
+          <option value="lofi">Lo‑Fi</option>
+          <option value="epic">熱血</option>
+        </select>
+      </label>
+      <label style="margin-left:10px;">
+        <input type="checkbox" id="ambientToggle"> 環境音效
+      </label>
+      <label style="margin-left:10px;">尾端特效:
+        <select id="tailEffectSelect">
+          <option value="fire">🔥 火焰</option>
+          <option value="star">⭐ 星星</option>
+          <option value="trail">💫 粒子</option>
+        </select>
+      </label>
+    </div>
+    <div id="achTooltip" style="display:none;position:fixed;background:#111;border:1px solid #ffd700;color:#ffd700;padding:6px 10px;font-size:13px;border-radius:4px;pointer-events:none;z-index:999;max-width:260px;line-height:1.4;"></div>
+    <div id="achSlide" style="display:none;position:fixed;right:-300px;top:60px;background:linear-gradient(135deg,#1a1a2e,#16213e);border:2px solid #ffd700;border-radius:8px 0 0 8px;padding:14px 18px;z-index:1000;width:240px;box-shadow:-4px 4px 20px rgba(255,215,0,0.3);transition:right 0.5s ease;font-family:monospace;">
+      <div style="color:#ffd700;font-size:14px;font-weight:bold;margin-bottom:6px;">🏅 成就解鎖</div>
+      <div id="achSlideContent" style="color:#fff;font-size:13px;line-height:1.5;"></div>
+    </div>
+
+    <!-- 倒數顯示 -->
+<h2 id="countdown"></h2>
+
+<!-- 資訊區（隱藏，保留供內部參考） -->
+<div style="display:none;">
+  <p id="scoreDisplay">🟩 1P: 0 Lv.0</p>
+  <p id="scoreDisplayP2" style="display: none; color: #00d8ff;">🟦 2P: 0 Lv.0</p>
+  <p id="scoreDisplayAI" style="display: none; color: #ff4444;">🤖 AI: 0 Lv.0</p>
+  <p id="highScoreDisplay">🏆 最高分: 1 Lv.1</p>
+  <p id="status"></p>
+</div>
+
+  <script>
+    window.onload = function () {
+    originalTitle = document.querySelector('h1').textContent;
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const box = 20;
+    const rows = canvas.width / box;
+
+    //================================
+    // 音效系統
+    //================================
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playSound(type) {
+        if (audioCtx.state === "suspended") audioCtx.resume();
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        switch (type) {
+            case "eat": osc.type = "square"; osc.frequency.value = 700; break;
+            case "question": osc.type = "square"; osc.frequency.value = 450; break;
+            case "poison": osc.type = "sawtooth"; osc.frequency.value = 160; break;
+            case "hit": osc.type = "square"; osc.frequency.value = 120; break;
+            case "explode": osc.type = "sawtooth"; osc.frequency.value = 70; break;
+            case "gameover": osc.type = "triangle"; osc.frequency.value = 60; break;
+            case "special": osc.type = "square"; osc.frequency.value = 1000; break;
+            case "levelup": osc.type = "square"; osc.frequency.value = 900; break;
+        }
+        gain.gain.value = 0.2;
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+        osc.stop(audioCtx.currentTime + 0.25);
+    }
+
+    let bgmTimer = null;
+    function startBGM() {
+        if (bgmTimer) return;
+        let notes = audioKits[currentAudioKit];
+        let index = 0;
+        bgmTimer = setInterval(() => {
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = oscTypes[currentAudioKit] || "square";
+            osc.frequency.value = notes[index];
+            gain.gain.value = 0.04;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+            osc.stop(audioCtx.currentTime + 0.15);
+            index = (index + 1) % notes.length;
+        }, 250);
+    }
+    function stopBGM() { clearInterval(bgmTimer); bgmTimer = null; }
+    // 更刺激的背景音樂（旋渦時使用）
+    let intenseBgmTimer = null;
+    function startIntenseBGM() {
+        if (intenseBgmTimer) return;
+        // 使用較高頻率與較快節奏的音階
+        const notes = [659, 784, 987, 1318];
+        let idx = 0;
+        intenseBgmTimer = setInterval(() => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = oscTypes[currentAudioKit] || "square";
+            osc.frequency.value = notes[idx];
+            gain.gain.value = 0.06;
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+            osc.stop(audioCtx.currentTime + 0.1);
+            idx = (idx + 1) % notes.length;
+        }, 150);
+    }
+    function stopIntenseBGM() { clearInterval(intenseBgmTimer); intenseBgmTimer = null; }
+
+    
+    //================================
+    // 遊戲變數與最高分記憶
+    //================================
+    let gameMode = 1; // 1:單人, 2:雙人
+    let p1 = { body: [], dir: "RIGHT", changing: false, score: 1, alive: true, name: "1P (綠蛇)", level: 1, magnetActive: false, magnetTimer: null, shieldActive: false, wallPassAvailable: false, headSize: 1 };
+    let p2 = { body: [], dir: "LEFT", changing: false, score: 1, alive: true, name: "2P (藍蛇)", level: 1, magnetActive: false, magnetTimer: null, shieldActive: false, wallPassAvailable: false, headSize: 1 };
+    let p3 = { body: [], dir: "UP", changing: false, score: 1, alive: true, name: "AI (紅蛇)", level: 1, magnetActive: false, magnetTimer: null, shieldActive: false, wallPassAvailable: false, headSize: 1 };
+
+    let foods = [];
+    let poisonFoods = [];
+    let questionItem = null;
+    let powerUps = []; // 新增：各種道具（加速、凍結、穿牆）
+
+    let level = 1;
+  let shrink = 0;
+    let gameSpeed = 120;
+    let gameLoop = null;
+    let itemTimer = null;
+    let bombTimer = null;
+    let gameRunning = false;
+    let gameStartTime = 0;
+    // 主題與音效設定
+    let currentTheme = 'default';
+    let currentAudioKit = 'electronic';
+    let ambientEnabled = false;
+    let tailEffect = 'glow';
+    // 成就系统
+    const ACHIEVEMENT_KEY = 'snakeAchievements';
+    const achievementDefs = [
+        { id: 'eat10', name: '新手吃貨', desc: '累積吃掉 10 顆果實', icon: '🍎', check: s => s.totalEaten >= 10 },
+        { id: 'eat50', name: '老饕', desc: '累積吃掉 50 顆果實', icon: '🍎', check: s => s.totalEaten >= 50, requires: 'eat10' },
+        { id: 'eat100', name: '果實大師', desc: '累積吃掉 100 顆果實', icon: '🏆', check: s => s.totalEaten >= 100, requires: 'eat50' },
+        { id: 'eat200', name: '傳說吃貨', desc: '累積吃掉 200 顆果實', icon: '👑', check: s => s.totalEaten >= 200, requires: 'eat100' },
+        { id: 'lv5', name: '升級達人', desc: '達到 Lv.5', icon: '📈', check: s => s.maxLevel >= 5 },
+        { id: 'lv10', name: '高等玩家', desc: '達到 Lv.10', icon: '💎', check: s => s.maxLevel >= 10, requires: 'lv5' },
+        { id: 'lv15', name: '巔峰強者', desc: '達到 Lv.15', icon: '🔥', check: s => s.maxLevel >= 15, requires: 'lv10' },
+        { id: 'combo5', name: '連擊初段', desc: '連擊達到 5', icon: '🔥', check: s => s.maxCombo >= 5 },
+        { id: 'combo15', name: '連擊高手', desc: '連擊達到 15', icon: '⚡', check: s => s.maxCombo >= 15, requires: 'combo5' },
+        { id: 'combo30', name: '不敗傳說', desc: '連擊達到 30', icon: '👑', check: s => s.maxCombo >= 30, requires: 'combo15' },
+        { id: 'dual', name: '雙人同樂', desc: '玩過雙人模式', icon: '👥', check: s => s.dualPlayed },
+        { id: 'survive5', name: '倖存者', desc: '單場存活超過 5 分鐘', icon: '⏱️', check: s => s.survive5 },
+        { id: 'aiPlayed', name: '初次對決', desc: '玩過 AI 對戰模式', icon: '🤖', check: s => s.aiPlayed },
+        { id: 'aiFirstWin', name: 'AI 剋星', desc: '首次在 AI 對戰中獲勝', icon: '🏆', check: s => s.aiWins >= 1, requires: 'aiPlayed' },
+        { id: 'aiFiveWins', name: 'AI 終結者', desc: '在 AI 對戰中累積獲勝 5 次', icon: '👑', check: s => s.aiWins >= 5, requires: 'aiFirstWin' },
+        { id: 'aiLv5', name: '超越 AI', desc: '在 AI 對戰中達到 Lv.5', icon: '💡', check: s => s.aiMaxLevel >= 5, requires: 'aiPlayed' },
+        { id: 'hiddenClick', name: '發現彩蛋', desc: '點擊標題「貪吃蛇 GAME」', icon: '🥚', hidden: true, check: () => false },
+    ];
+    let unlockedAchievements = [];
+    let achievementStats = { totalEaten: 0, maxLevel: 0, maxCombo: 0, dualPlayed: false, survive5: false, aiPlayed: false, aiWins: 0, aiMaxLevel: 0 };
+
+    function loadAchievements() {
+        try {
+            const data = JSON.parse(localStorage.getItem(ACHIEVEMENT_KEY));
+            if (data) {
+                if (data.unlocked) unlockedAchievements = data.unlocked;
+                if (data.stats) achievementStats = { ...achievementStats, ...data.stats };
+            }
+        } catch (e) {}
+        updateAchievementPanel();
+    }
+    function saveAchievements() {
+        localStorage.setItem(ACHIEVEMENT_KEY, JSON.stringify({ unlocked: unlockedAchievements, stats: achievementStats }));
+    }
+    function checkAchievements() {
+        let newUnlock = false;
+        achievementDefs.forEach(def => {
+            if (!unlockedAchievements.includes(def.id) && def.check(achievementStats)) {
+                if (def.requires && !unlockedAchievements.includes(def.requires)) return;
+                unlockedAchievements.push(def.id);
+                showAchievementSlide(def);
+                newUnlock = true;
+                playSound('levelup');
+            }
+        });
+        if (newUnlock) {
+            saveAchievements();
+            updateAchievementPanel();
+        }
+    }
+    function showAchievementSlide(def) {
+        const el = document.getElementById('achSlide');
+        const content = document.getElementById('achSlideContent');
+        content.innerHTML = `恭喜玩家解鎖［<b>${def.icon} ${def.name}</b>］成就`;
+        el.style.right = '10px';
+        el.style.display = 'block';
+        setTimeout(() => { el.style.right = '-300px'; }, 3500);
+        setTimeout(() => { el.style.display = 'none'; }, 4000);
+    }
+    function updateAchievementPanel() {
+        const side = document.getElementById('achSidebar');
+        if (!side) return;
+        const visible = achievementDefs.filter(d => !d.hidden || unlockedAchievements.includes(d.id));
+        const doneVisible = visible.filter(d => unlockedAchievements.includes(d.id)).length;
+        const total = visible.length;
+        // 右側直列
+        let sideHtml = `<div style="color:#ffd700;font-weight:bold;font-size:13px;margin-bottom:6px;text-align:left;">🏅 成就 ${doneVisible}/${total}</div>`;
+        visible.forEach(def => {
+            const ok = unlockedAchievements.includes(def.id);
+            const chainLocked = !ok && def.requires && !unlockedAchievements.includes(def.requires);
+            const icon = chainLocked ? '🔒' : def.icon;
+            sideHtml += `<div class="ach-row" data-idx="${achievementDefs.indexOf(def)}" style="color:${ok?'#ffd700':'#666'};margin-bottom:3px;cursor:pointer;white-space:nowrap;">${icon} ${def.name}</div>`;
+        });
+        side.innerHTML = sideHtml;
+        // 綁定 hover 事件
+        const tooltip = document.getElementById('achTooltip');
+        const bindTip = (el) => {
+            const idx = parseInt(el.dataset.idx);
+            const def = achievementDefs[idx];
+            const ok = unlockedAchievements.includes(def.id);
+            el.addEventListener('mouseenter', e => {
+                let descText, status;
+                if (ok) {
+                    status = '✅ 已解鎖';
+                    descText = def.desc;
+                } else if (def.requires && !unlockedAchievements.includes(def.requires)) {
+                    const reqDef = achievementDefs.find(d => d.id === def.requires);
+                    status = `🔒 需解鎖「${reqDef ? reqDef.name : def.requires}」`;
+                    descText = '???';
+                } else {
+                    status = '🔒 未解鎖';
+                    descText = def.desc;
+                }
+                tooltip.innerHTML = `<b>${def.icon} ${def.name}</b><br>${descText}<br><small>${status}</small>`;
+                tooltip.style.display = 'block';
+            });
+            el.addEventListener('mousemove', e => {
+                tooltip.style.left = (e.clientX + 12) + 'px';
+                tooltip.style.top = (e.clientY + 12) + 'px';
+                const rect = tooltip.getBoundingClientRect();
+                if (rect.right > window.innerWidth) {
+                    tooltip.style.left = (e.clientX - rect.width - 12) + 'px';
+                }
+                if (rect.bottom > window.innerHeight) {
+                    tooltip.style.top = (e.clientY - rect.height - 12) + 'px';
+                }
+            });
+            el.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; });
+        };
+        side.querySelectorAll('.ach-row').forEach(bindTip);
+    }
+// ==== 主題設定映射 (canvas 用) ====
+const themeSettings = {
+    default: { bg: "#1b3a24", grid: "#285535", fruit: "#ff4444", fruitSpot: "#00aa00", snakeStart: "#20ff20", snakeStartP2: "#00aaff", poison: "#ff00aa", poisonInner: "#000" },
+    pixel:   { bg: "#111111", grid: "#555555", fruit: "#ff5555", fruitSpot: "#fff", snakeStart: "#0f0", snakeStartP2: "#00aaff", poison: "#ff00ff", poisonInner: "#000" },
+    retro:   { bg: "#341", grid: "#654", fruit: "#ffb", fruitSpot: "#000", snakeStart: "#ff0", snakeStartP2: "#00aaff", poison: "#ff6600", poisonInner: "#000" }
+};
+// 音效套件與振盪器類型
+const audioKits = {
+    electronic: [262,330,392,523,392,330,262,196],
+    lofi: [196,262,330,392,523,392,330,262],
+    epic: [440,523,587,659,587,523,440,349]
+};
+const oscTypes = { electronic: "square", lofi: "sine", epic: "sawtooth" };
+
+// ==== 連擊系統與語音回饋 ====
+let comboCount = 0;
+let maxCombo = 0;
+let comboTimer = null;
+let lastSpokenMilestone = 0;
+function speak(text) {
+    if (window.speechSynthesis) {
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.rate = 1.2;
+        utt.volume = 0.6;
+        speechSynthesis.speak(utt);
+    }
+}
+function resetCombo() {
+    comboCount = 0;
+    if (comboTimer) { clearTimeout(comboTimer); comboTimer = null; }
+}
+function addCombo() {
+    comboCount++;
+    if (comboCount > maxCombo) {
+        maxCombo = comboCount;
+        if (comboCount > achievementStats.maxCombo) {
+            achievementStats.maxCombo = comboCount;
+            checkAchievements();
+        }
+    }
+    clearTimeout(comboTimer);
+    comboTimer = setTimeout(() => resetCombo(), 3000);
+    // 里程碑語音
+    const milestones = [3,5,8,10,15,20,30,50];
+    for (const m of milestones) {
+        if (comboCount === m && lastSpokenMilestone < m) {
+            lastSpokenMilestone = m;
+            const texts = {3:"太棒了",5:"漂亮",8:"驚人",10:"不可思議",15:"神乎其技",20:"無敵",30:"傳奇",50:"超凡入聖"};
+            speak(texts[m] || `連擊 ${m}`);
+            // 連擊特效
+            emitComboVFX(m);
+            break;
+        }
+    }
+}
+function emitComboVFX(m) {
+    for (let i = 0; i < Math.min(m * 3, 60); i++) {
+        addParticle({
+            x: canvas.width/2 + (Math.random() - 0.5) * canvas.width,
+            y: canvas.height/2 + (Math.random() - 0.5) * canvas.height,
+            vx: (Math.random() - 0.5) * 6,
+            vy: (Math.random() - 0.5) * 6,
+            size: Math.random() * 6 + 3,
+            life: 40,
+            color: `hsl(${Math.random() * 360},100%,60%)`
+        });
+    }
+    screenShake = Math.min(m, 15);
+}
+
+    let questionPause = false; // UI 初始化
+    // 控制面板元素 (加上錯誤保護)
+    try {
+        const themeSelect = document.getElementById('themeSelect');
+        const audioSelect = document.getElementById('audioSelect');
+        const ambientToggle = document.getElementById('ambientToggle');
+        if (themeSelect) themeSelect.addEventListener('change',()=>{
+            document.body.classList.remove('theme-default','theme-pixel','theme-retro');
+            document.body.classList.add('theme-'+themeSelect.value);
+            currentTheme = themeSelect.value; // 同步變數
+            // 更新按鈕圖示依主題
+            const btnIcons = {
+                default: {single:'👤', dual:'👥'},
+                pixel:   {single:'⌨️', dual:'🕹️'},
+                retro:   {single:'🕹️', dual:'👾'}
+            };
+            const icons = btnIcons[currentTheme] || btnIcons['default'];
+            const start1 = document.getElementById('start1PBtn');
+            const start2 = document.getElementById('start2PBtn');
+            if (start1) start1.textContent = `${icons.single} 單人遊玩`;
+            if (start2) start2.textContent = `${icons.dual} 雙人對戰`;
+        });
+        if (audioSelect) audioSelect.addEventListener('change',()=>{ currentAudioKit = audioSelect.value; restartBGM(); });
+        const tailEffectSelect = document.getElementById('tailEffectSelect');
+        if (tailEffectSelect) tailEffectSelect.addEventListener('change',()=>{ tailEffect = tailEffectSelect.value; });
+        if (ambientToggle) ambientToggle.addEventListener('change',()=>{ ambientEnabled = ambientToggle.checked; if(ambientEnabled){ startAmbient(); } else { stopAmbient(); } });
+        function restartBGM(){ stopBGM(); startBGM(); }
+        function startAmbient(){ if(!window.ambientOsc){ window.ambientOsc = audioCtx.createOscillator(); window.ambientGain = audioCtx.createGain(); window.ambientOsc.type='sine'; window.ambientOsc.frequency.value=40;             window.ambientGain.gain.value=0.5; window.ambientOsc.connect(window.ambientGain).connect(audioCtx.destination); window.ambientOsc.start(); } }
+        function stopAmbient(){ if(window.ambientOsc){ window.ambientOsc.stop(); window.ambientOsc.disconnect(); window.ambientOsc=null; } }
+    } catch (e) { console.error('Control panel init error:', e); }
+
+    let exploding = false;
+    let questionStartTime = 0;
+    const questionTime = 15000;
+    let particles = [];
+    let burstParticles = [];
+    let floatTexts = [];
+    let tailParticles = [];
+let stars = [];
+   let vortices = [];
+let obstacles = [];
+let bombZones = [];
+let meteors = [];
+let aiSnake = null;
+   let countdownText = "";
+let timeUp = false;
+// Time Challenge variables
+let timeLeft = 0;
+let timeTimer = null;
+
+    let screenShake = 0;
+    let levelUpFlash = 0;
+    // level‑up overlay文字
+    let levelUpMessage = "";
+    let levelUpAlpha = 0;
+    let levelUpTimer = 0;
+    // 結束動畫：大蛇從側邊衝過畫布
+    let ending = false;
+    let endingSnakeX = -canvas.width; // 初始在畫布左側外
+    let endingTimer = null;
+    const endingSpeed = 12;
+    // 用於結束時顯示分數、等級與最高分的資訊物件
+    let gameOverInfo = null;
+    // VFX Helpers
+    function addParticle(p) { particles.push(p); }
+    function addFloatText(text, x, y, color) {
+        floatTexts.push({ x, y, text, color, life: 60, dy: -0.5, alpha: 1 });
+    }
+    function emitEatVFX(x, y) {
+        for (let i = 0; i < 12; i++) {
+            addParticle({
+                x: x * box + box / 2,
+                y: y * box + box / 2,
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                size: Math.random() * 3 + 2,
+                life: 30,
+                color: "#ffd700"
+            });
+        }
+        addFloatText("+1", x, y, "#ffd700");
+    }
+    function emitPoisonVFX(x, y) {
+        for (let i = 0; i < 15; i++) {
+            addParticle({
+                x: x * box + box / 2,
+                y: y * box + box / 2,
+                vx: (Math.random() - 0.5) * 3,
+                vy: (Math.random() - 0.5) * 3,
+                size: Math.random() * 4 + 2,
+                life: 35,
+                color: "#8a2be2"
+            });
+        }
+        addFloatText("-5", x, y, "#8a2be2");
+        screenShake = 6;
+    }
+    function emitQuestionCorrectVFX(x, y) {
+        for (let i = 0; i < 20; i++) {
+            addParticle({
+                x: x * box + box / 2,
+                y: y * box + box / 2,
+                vx: (Math.random() - 0.5) * 5,
+                vy: (Math.random() - 0.5) * 5,
+                size: Math.random() * 4 + 3,
+                life: 40,
+                color: "#ff6600"
+            });
+        }
+        addFloatText("+5", x, y, "#ff6600");
+        screenShake = 4;
+    }
+    function emitLevelUpVFX() {
+        for (let i = 0; i < 30; i++) {
+            addParticle({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                vx: (Math.random() - 0.5) * 6,
+                vy: (Math.random() - 0.5) * 6,
+                size: Math.random() * 5 + 3,
+                life: 50,
+                color: "hsl(" + Math.random() * 360 + ",100%,60%)"
+            });
+        }
+        levelUpFlash = 12;
+    }
+    function emitDeathExplosion(x, y) {
+        for (let i = 0; i < 150; i++) {
+            addParticle({
+                x: x * box + box / 2,
+                y: y * box + box / 2,
+                vx: (Math.random() - 0.5) * 8,
+                vy: (Math.random() - 0.5) * 8,
+                size: Math.random() * 6 + 4,
+                life: 45,
+                color: "#ff4500"
+            });
+        }
+        screenShake = 12;
+    }
+    function renderParticles() {
+        particles.forEach(p => {
+            p.x += p.vx; p.y += p.vy; p.life--;
+            ctx.fillStyle = p.color || "#fff";
+            ctx.fillRect(p.x, p.y, p.size, p.size);
+        });
+        particles = particles.filter(p => p.life > 0);
+    }
+    function renderFloatTexts() {
+        floatTexts.forEach(t => {
+            t.y += t.dy; t.life--; t.alpha -= 0.016;
+            ctx.fillStyle = t.color + Math.round(t.alpha * 255).toString(16).padStart(2, "0");
+            ctx.font = "16px monospace";
+            ctx.fillText(t.text, t.x * box, t.y * box);
+        });
+        floatTexts = floatTexts.filter(t => t.life > 0 && t.alpha > 0);
+    }
+    function renderTailParticles() {
+        tailParticles.forEach(p => {
+            p.x += p.vx; p.y += p.vy; p.life--;
+            ctx.fillStyle = p.color || '#fff';
+            ctx.globalAlpha = p.life / 40;
+            ctx.fillRect(p.x - p.size/2, p.y - p.size/2, p.size, p.size);
+        });
+        ctx.globalAlpha = 1;
+        tailParticles = tailParticles.filter(p => p.life > 0);
+    }
+    
+    // 讀取最高分與最高級數
+    let highScore = Number(localStorage.getItem("snakeHighScore")) || 1;
+    let storedLevel = localStorage.getItem("snakeHighLevel");
+    let highLevel = 1;
+    if (storedLevel) {
+        highLevel = Number(storedLevel);
+    } else {
+        while (highScore >= Math.pow(2, highLevel)) highLevel++;
+    }
+
+    //================================
+    // 初始化與安全座標
+    //================================
+    function resetGame(mode) {
+        clearInterval(gameLoop);
+        clearInterval(itemTimer);
+        gameMode = mode;
+
+        p1 = { body: [{ x: 5, y: 10 }], dir: "RIGHT", changing: false, score: 1, alive: true, name: "1P (綠蛇)", level: 1, magnetActive: false, magnetTimer: null, shieldActive: false, wallPassAvailable: false, headSize: 1 };
+        p2 = { body: [{ x: 14, y: 10 }], dir: "LEFT", changing: false, score: 1, alive: true, name: "2P (藍蛇)", level: 1, magnetActive: false, magnetTimer: null, shieldActive: false, wallPassAvailable: false, headSize: 1 };
+        p3 = { body: [{ x: 15, y: 5 }], dir: "UP", changing: false, score: 1, alive: true, name: "AI (紅蛇)", level: 1, magnetActive: false, magnetTimer: null, shieldActive: false, wallPassAvailable: false, headSize: 1 };
+
+        foods = [];
+        poisonFoods = [];
+        powerUps = [];
+        bombZones = [];
+        meteors = [];
+        questionItem = null;
+        level = 1;
+        gameSpeed = 120;
+        particles = [];
+        burstParticles = [];
+floatTexts = [];
+stars = [];
+  shrink = 0;
+        screenShake = 0;
+        levelUpFlash = 0;
+        // 重設升級提示相關變數
+        levelUpMessage = "";
+        levelUpAlpha = 0;
+        levelUpTimer = 0;
+        exploding = false;
+        resetCombo();
+        if (p1.magnetTimer) { clearTimeout(p1.magnetTimer); p1.magnetTimer = null; }
+        if (p2.magnetTimer) { clearTimeout(p2.magnetTimer); p2.magnetTimer = null; }
+        // reset ending animation
+        ending = false;
+        if (endingTimer) clearInterval(endingTimer);
+        endingSnakeX = -canvas.width;
+        // reset question state
+        questionPause = false;
+        questionStartTime = 0;
+
+        document.getElementById("sb2P").style.display = (gameMode === 2) ? "block" : "none";
+        document.getElementById("sbAI").style.display = (gameMode === 3) ? "block" : "none";
+        document.getElementById("battleRules").style.display = (gameMode === 2 || gameMode === 3) ? "block" : "none";
+        document.getElementById("p2Instruction").style.display = (gameMode === 2) ? "block" : "none";
+
+        for (let i = 0; i < foodCountForLevel(level); i++) {
+            createFood();
+        }
+        updateDisplay();
+        // Mode‑specific initialization
+
+        // 闖關模式初始化
+        if (mode === 4) {
+            level = 3; // 起始較高等級
+            gameSpeed = 100; // 稍快的節奏
+            document.getElementById('status').textContent = '闖關模式：從 Lv.3 開始';
+        }
+
+    }
+
+    function getRandomPosition() {
+        let posX, posY, onSnake;
+        do {
+            posX = Math.floor(Math.random() * rows);
+            posY = Math.floor(Math.random() * rows);
+            let onP1 = p1.body.some(seg => seg.x === posX && seg.y === posY);
+            let onP2 = gameMode === 2 && p2.body.some(seg => seg.x === posX && seg.y === posY);
+            let onP3 = gameMode === 3 && p3.body.some(seg => seg.x === posX && seg.y === posY);
+            onSnake = onP1 || onP2 || onP3;
+        } while (onSnake);
+        return { x: posX, y: posY };
+    }
+
+    //================================
+    // 雙人鍵盤控制監聽
+    //================================
+    document.addEventListener("keydown", function (e) {
+        if (!gameRunning || exploding) return;
+
+        const arrowKeys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+        const wasdKeys = ["w", "W", "a", "A", "s", "S", "d", "D"];
+
+        if (arrowKeys.includes(e.key) || wasdKeys.includes(e.key)) {
+            e.preventDefault();
+        }
+
+        // --- 玩家 1 (方向鍵) ---
+        if (!p1.changing) {
+            if (e.key === "ArrowUp" && p1.dir !== "DOWN") { p1.dir = "UP"; p1.changing = true; }
+            if (e.key === "ArrowDown" && p1.dir !== "UP") { p1.dir = "DOWN"; p1.changing = true; }
+            if (e.key === "ArrowLeft" && p1.dir !== "RIGHT") { p1.dir = "LEFT"; p1.changing = true; }
+            if (e.key === "ArrowRight" && p1.dir !== "LEFT") { p1.dir = "RIGHT"; p1.changing = true; }
+        }
+
+        // --- 玩家 2 (WASD) ---
+        if (gameMode === 2 && !p2.changing) {
+            let key = e.key.toLowerCase();
+            if ((key === "w" || e.code === "KeyW") && p2.dir !== "DOWN") { p2.dir = "UP"; p2.changing = true; }
+            if ((key === "s" || e.code === "KeyS") && p2.dir !== "UP") { p2.dir = "DOWN"; p2.changing = true; }
+            if ((key === "a" || e.code === "KeyA") && p2.dir !== "RIGHT") { p2.dir = "LEFT"; p2.changing = true; }
+            if ((key === "d" || e.code === "KeyD") && p2.dir !== "LEFT") { p2.dir = "RIGHT"; p2.changing = true; }
+        }
+    });
+
+    //================================
+    // 遊戲主迴圈與移動判定
+    //================================
+    function draw(preview = false) {
+        if (exploding) return;
+        p1.changing = false;
+        p2.changing = false;
+
+        // screen shake
+        let shakeX = 0, shakeY = 0;
+        if (screenShake > 0) {
+            shakeX = (Math.random() - 0.5) * 6;
+            shakeY = (Math.random() - 0.5) * 6;
+            screenShake--;
+        }
+        ctx.save();
+        ctx.translate(shakeX, shakeY);
+
+        // 使用當前主題色彩
+        ctx.fillStyle = themeSettings[currentTheme].bg;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        /* 時間挑戰倒數已移至 #status，畫布內不再顯示 */
+
+        for (let x = 0; x < rows; x++) {
+            for (let y = 0; y < rows; y++) {
+                ctx.strokeStyle = themeSettings[currentTheme].grid;
+                ctx.strokeRect(x * box, y * box, box, box);
+            }
+        }
+        if (countdownText) {
+            ctx.fillStyle = "#ffd700";
+            ctx.font = "36px monospace";
+            ctx.textAlign = "center";
+            ctx.fillText(countdownText, canvas.width/2, canvas.height/2);
+        }
+        if (!gameRunning && !exploding && !countdownText) {
+            ctx.fillStyle = "#ffd700";
+            ctx.font = "24px monospace";
+            ctx.textAlign = "center";
+            ctx.globalAlpha = 0.6 + Math.sin(Date.now() / 500) * 0.3;
+            ctx.fillText("請選擇遊玩模式...", canvas.width / 2, canvas.height / 2);
+            ctx.globalAlpha = 1;
+        }
+        drawFoods();
+        drawQuestion();
+        drawPoison();
+        drawPowerUps();
+        drawVortex();
+        drawBombZones();
+        drawMeteors();
+
+        drawSnake(p1, false);
+        if (gameMode === 2) drawSnake(p2, true);
+        if (gameMode === 3) drawSnake(p3, 'ai');
+
+        // render VFX
+        renderParticles();
+        renderFloatTexts();
+        renderTailParticles();
+
+        if (levelUpFlash > 0) {
+            ctx.fillStyle = "rgba(255,255,255," + (levelUpFlash / 12) + ")";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            levelUpFlash--;
+        }
+
+        // 顯示升級文字（半透明、淡出）
+        if (levelUpMessage && levelUpTimer > 0) {
+            ctx.save();
+            ctx.globalAlpha = levelUpAlpha;
+            ctx.fillStyle = "#fff";
+            ctx.font = "24px monospace";
+            ctx.textAlign = "center";
+            ctx.fillText(levelUpMessage, canvas.width / 2, 30);
+            ctx.restore();
+            levelUpAlpha -= 0.01;
+            levelUpTimer--;
+            if (levelUpTimer <= 0) {
+                levelUpMessage = "";
+                levelUpAlpha = 0;
+            }
+        }
+
+        ctx.restore();
+
+        if (preview) return;
+
+        // 磁鐵吸引果實
+        updateMagnet();
+
+        // 更新障礙物與炸彈
+        updateMeteors();
+        updateBombZones();
+
+        if (gameMode === 3) {
+            movePlayer(p1, p3);
+            moveAI();
+        } else {
+            movePlayer(p1, p2);
+            if (gameMode === 2) movePlayer(p2, p1);
+        }
+
+        if ((gameMode === 3 && (!p1.alive || !p3.alive)) || (!p1.alive || (gameMode === 2 && !p2.alive))) {
+            let deadBody = !p1.alive ? p1.body : (gameMode === 3 ? p3.body : p2.body);
+            let winMsg = "";
+            if (gameMode === 3) {
+                if (!p1.alive && !p3.alive) winMsg = "🤝 平手！";
+                else if (!p1.alive) winMsg = "🤖 AI 獲勝！";
+                else winMsg = "🏆 玩家 1 獲勝！";
+            } else if (gameMode === 1) {
+                winMsg = "";
+            } else {
+                if (!p1.alive && !p2.alive) winMsg = "🤝 同歸於盡，平手！";
+                else if (!p1.alive) winMsg = "🏆 玩家 2 (藍蛇) 獲勝！";
+                else winMsg = "🏆 玩家 1 (綠蛇) 獲勝！";
+            }
+            explode(deadBody, winMsg);
+            return;
+        }
+
+        updateLevel();
+        updateDisplay();
+        // 成就：存活 5 分鐘
+        if (!achievementStats.survive5 && gameRunning && Date.now() - gameStartTime >= 300000) {
+            achievementStats.survive5 = true;
+            checkAchievements();
+        }
+    }
+
+    function movePlayer(p, otherP) {
+        if (!p.alive) return;
+        let x = p.body[0].x;
+        let y = p.body[0].y;
+
+        if (p.dir === "UP") y--;
+        if (p.dir === "DOWN") y++;
+        if (p.dir === "LEFT") x--;
+        if (p.dir === "RIGHT") x++;
+
+        // 根據 headSize 計算頭部碰撞箱（像素）
+        const hs = p.headSize;
+        const halfSize = ((box - 2) * hs) / 2;
+        const cx = x * box + box / 2;
+        const cy = y * box + box / 2;
+        const hLeft = cx - halfSize;
+        const hRight = cx + halfSize;
+        const hTop = cy - halfSize;
+        const hBottom = cy + halfSize;
+
+        function headOverlapsCell(gx, gy) {
+            return hLeft < (gx + 1) * box && hRight > gx * box &&
+                   hTop < (gy + 1) * box && hBottom > gy * box;
+        }
+
+        // 邊界檢查
+        if (hLeft < 0 || hRight > canvas.width || hTop < 0 || hBottom > canvas.height) {
+            if (p.wallPassAvailable) {
+                p.wallPassAvailable = false;
+                if (hLeft < 0) x = rows - 1;
+                if (hRight > canvas.width) x = 0;
+                if (hTop < 0) y = rows - 1;
+                if (hBottom > canvas.height) y = 0;
+            } else {
+                p.alive = false;
+                return;
+            }
+        }
+
+        // 自撞檢測（跳過頭部）
+        for (let i = 1; i < p.body.length; i++) {
+            if (headOverlapsCell(p.body[i].x, p.body[i].y)) { p.alive = false; return; }
+        }
+        // 撞其他玩家
+        if ((gameMode === 2 || gameMode === 3) && otherP.alive) {
+            for (let i = 0; i < otherP.body.length; i++) {
+                if (headOverlapsCell(otherP.body[i].x, otherP.body[i].y)) { p.alive = false; return; }
+            }
+        }
+
+        // 旋渦碰撞檢測（使用中心格）
+        if (vortices.some(v => {
+            const sz = v.sizeFactor;
+            return x >= v.x && x < v.x + sz && y >= v.y && y < v.y + sz;
+        })) {
+            // 暫停遊戲並加入旋轉效果
+            gameRunning = false;
+        clearInterval(gameLoop);
+        clearInterval(itemTimer);
+        clearInterval(bombTimer);
+        if (timeTimer) { clearInterval(timeTimer); timeTimer = null; }
+            document.body.classList.add('vortex-effect');
+        stopBGM(); // 停止原本背景音樂
+        startIntenseBGM(); // 播放更刺激的音樂
+            setTimeout(() => {
+document.body.classList.remove('vortex-effect');
+// 隱藏所有 UI（說明、計分、按鈕、倒數、狀態、Canvas）
+document.querySelector('.game-panel').style.display = 'none';
+document.querySelector('.score-panel').style.display = 'none';
+document.querySelector('.btn-group').style.display = 'none';
+document.getElementById('countdown').style.display = 'none';
+document.getElementById('status').style.display = 'none';
+canvas.style.display = 'none';
+// 清空遊戲資料
+foods = []; poisonFoods = []; questionItem = null; vortices = [];
+// 更改標題為「🕹️副本世界🎮」
+const titleEl = document.querySelector('h1');
+if (titleEl) titleEl.textContent = '🕹️副本世界🎮';
+// 暫停遊戲，等待玩家自行重啟或在遊戲結束時恢復 UI
+gameRunning = false;
+            }, 3000);
+            return;
+        }
+        // 道具/物品檢測（遍歷頭部碰撞箱覆蓋的所有格子）
+        const minGX = Math.max(0, Math.floor(hLeft / box));
+        const maxGX = Math.min(rows - 1, Math.floor((hRight - 0.001) / box));
+        const minGY = Math.max(0, Math.floor(hTop / box));
+        const maxGY = Math.min(rows - 1, Math.floor((hBottom - 0.001) / box));
+        for (let gx = minGX; gx <= maxGX; gx++) {
+            for (let gy = minGY; gy <= maxGY; gy++) {
+                checkPowerUps(gx, gy, p);
+            }
+        }
+        let grow = false;
+        for (let gx = minGX; gx <= maxGX; gx++) {
+            for (let gy = minGY; gy <= maxGY; gy++) {
+                const result = checkItems(gx, gy, p);
+                if (result === true || typeof result === "number") grow = result;
+            }
+        }
+        p.body.unshift({ x: x, y: y });
+
+        if (grow === false) {
+            p.body.pop();
+        } else if (typeof grow === "number" && grow > 1) {
+            for (let i = 0; i < grow - 1; i++) {
+                let tail = p.body[p.body.length - 1] || { x: x, y: y };
+                p.body.push({ x: tail.x, y: tail.y });
+            }
+        }
+        p.score = p.body.length;
+        if (p.score <= 0) p.alive = false;
+    }
+
+    //================================
+    // 蛇身繪製
+    //================================
+    function drawSnake(p, colorMode) {
+        // colorMode: false=1P綠, true=2P藍, 'ai'=AI紅
+        let length = p.body.length;
+        p.body.forEach((s, index) => {
+            let ratio = index / Math.max(length - 1, 1);
+            let r, g, b;
+            if (colorMode === 'ai') {
+                r = Math.floor(255 - ratio * 100);
+                g = Math.floor(30 + ratio * 60);
+                b = Math.floor(30 + ratio * 60);
+            } else if (colorMode) {
+                r = Math.floor(0 + ratio * 30);
+                g = Math.floor(100 - ratio * 60);
+                b = Math.floor(255 - ratio * 30);
+            } else {
+                r = Math.floor(20 + ratio * 120);
+                g = Math.floor(255 - ratio * 100);
+                b = Math.floor(40 + ratio * 80);
+            }
+
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillRect(s.x * box + 1, s.y * box + 1, box - 2, box - 2);
+
+            if (index === 0) {
+                // 頭部依 headSize 縮放
+                const hs = p.headSize;
+                const headW = (box - 2) * hs;
+                const headH = (box - 2) * hs;
+                const offX = (box - headW) / 2;
+                const offY = (box - headH) / 2;
+                ctx.fillStyle = colorMode === 'ai' ? '#ff4444' : (colorMode ? themeSettings[currentTheme].snakeStartP2 : themeSettings[currentTheme].snakeStart);
+                ctx.fillRect(s.x * box + offX, s.y * box + offY, headW, headH);
+                drawEyes(s, p.dir, hs);
+                if (p.shieldActive) {
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(100,200,255,0.7)';
+                    ctx.lineWidth = 3;
+                    const pulse = Math.sin(Date.now()/200)*2;
+                    ctx.beginPath();
+                    ctx.arc(s.x*box+box/2, s.y*box+box/2, box*0.8+pulse, 0, Math.PI*2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+        });
+        // 尾端特效
+        if (length > 0) {
+            const tail = p.body[length - 1];
+            const tx = tail.x * box + box / 2;
+            const ty = tail.y * box + box / 2;
+            const now = Date.now();
+            switch (tailEffect) {
+                case 'fire':
+                    if (Math.random() < 0.7) {
+                        tailParticles.push({ x: tx, y: ty, vx: (Math.random() - 0.5) * 2, vy: -Math.random() * 3 - 1, life: 30, color: Math.random() > 0.5 ? '#ff4400' : '#ffaa00', size: 3 });
+                    }
+                    break;
+                case 'star':
+                    if (Math.random() < 0.6) {
+                        tailParticles.push({ x: tx + (Math.random() - 0.5) * 10, y: ty, vx: (Math.random() - 0.5) * 1, vy: -Math.random() * 2 - 0.5, life: 40, color: '#ffd700', size: 3 });
+                    }
+                    break;
+                case 'trail':
+                    if (Math.random() < 0.8) {
+                        tailParticles.push({ x: tx + (Math.random() - 0.5) * 8, y: ty + (Math.random() - 0.5) * 8, vx: (Math.random() - 0.5) * 0.5, vy: (Math.random() - 0.5) * 0.5, life: 20, color: colorMode === 'ai' ? '#ff4444' : (colorMode ? '#00d8ff' : '#20ff20'), size: 2 });
+                    }
+                    break;
+            }
+        }
+    }
+
+    function drawEyes(s, dir, hs = 1) {
+        const cx = s.x * box + box/2;
+        const cy = s.y * box + box/2;
+        const halfHead = (box - 2) * hs / 2;
+        const eyeOff = halfHead * 0.4;
+        const eyeSize = Math.max(2, 3 * hs * 0.8);
+        ctx.fillStyle = "#000";
+        if (dir === "RIGHT") { ctx.fillRect(cx+eyeOff-1, cy-eyeOff-1, eyeSize, eyeSize); ctx.fillRect(cx+eyeOff-1, cy+eyeOff-1, eyeSize, eyeSize); }
+        if (dir === "LEFT")  { ctx.fillRect(cx-eyeOff-1, cy-eyeOff-1, eyeSize, eyeSize); ctx.fillRect(cx-eyeOff-1, cy+eyeOff-1, eyeSize, eyeSize); }
+        if (dir === "UP")    { ctx.fillRect(cx-eyeOff-1, cy-eyeOff-1, eyeSize, eyeSize); ctx.fillRect(cx+eyeOff-1, cy-eyeOff-1, eyeSize, eyeSize); }
+        if (dir === "DOWN")  { ctx.fillRect(cx-eyeOff-1, cy+eyeOff-1, eyeSize, eyeSize); ctx.fillRect(cx+eyeOff-1, cy+eyeOff-1, eyeSize, eyeSize); }
+    }
+
+    //================================
+    // 物品判斷與問答
+    //================================
+    function checkItems(x, y, p) {
+        for (let i = 0; i < foods.length; i++) {
+            if (x === foods[i].x && y === foods[i].y) {
+                let fx = foods[i].x, fy = foods[i].y;
+                foods.splice(i, 1);
+                playSound("eat");
+                emitEatVFX(fx, fy);
+                achievementStats.totalEaten++;
+                checkAchievements();
+                createFood();
+                addCombo();
+                return true;
+            }
+        }
+        if (questionItem && x === questionItem.x && y === questionItem.y) {
+            questionItem = null;
+            playSound("question");
+            questionPause = true;
+            clearInterval(gameLoop);
+            setTimeout(() => mathChallenge(p), 50);
+            return true;
+        }
+        for (let i = 0; i < poisonFoods.length; i++) {
+            const po = poisonFoods[i];
+            const sz = po.sizeFactor;
+            if (x >= po.x && x < po.x + sz && y >= po.y && y < po.y + sz) {
+                // 使用左上角作為特效起點
+                let px = po.x, py = po.y;
+                poisonFoods.splice(i, 1);
+                if (p.shieldActive) {
+                    p.shieldActive = false;
+                    playSound("question");
+                    emitEatVFX(px, py);
+                    document.getElementById("status").textContent = "🛡️ 護盾抵擋毒果！";
+                } else {
+                    playSound("poison");
+                    emitPoisonVFX(px, py);
+                    reduceSnake(p);
+                }
+                return false;
+            }
+        }
+        return false;
+    }
+
+    function reduceSnake(p) {
+        for (let i = 0; i < 5; i++) {
+            if (p.body.length > 0) p.body.pop();
+        }
+        p.score = p.body.length;
+        if (p.score <= 0) p.alive = false;
+        document.getElementById("status").textContent = `${p.name} 吃到毒果 -5節`;
+        resetCombo();
+    }
+
+    function mathChallenge(p) {
+        let a = Math.floor(Math.random() * 50) + 10;
+        let b = Math.floor(Math.random() * 50) + 10;
+        let add = Math.random() > 0.5;
+        let answer = add ? a + b : a - b;
+
+        if (p === p3) {
+            // AI 自動答對
+            questionPause = false;
+            for (let i = 0; i < 4; i++) {
+                let tail = p.body[p.body.length - 1] || { x: p.body[0].x, y: p.body[0].y };
+                p.body.push({ x: tail.x, y: tail.y });
+            }
+            p.score = p.body.length;
+            playSound("question");
+            document.getElementById("status").textContent = `🤖 AI 答對 +5節！`;
+            resumeAfterQuestion();
+            return;
+        }
+
+        let result = prompt(`【${p.name} 的數學挑戰！】\n請回答：${a} ${add ? "+" : "-"} ${b} = ?\n(答對 +5節，答錯自爆！)`);
+        if (result === null || result.trim() === "" || Number(result) !== answer) {
+            p.alive = false;
+            questionPause = false;
+            explode(p.body, `${p.name} 數學題答錯，自爆！`);
+            return;
+        }
+
+        for (let i = 0; i < 4; i++) {
+            let tail = p.body[p.body.length - 1] || { x: p.body[0].x, y: p.body[0].y };
+            p.body.push({ x: tail.x, y: tail.y });
+        }
+        p.score = p.body.length;
+        playSound("question");
+        document.getElementById("status").textContent = `✅ ${p.name} 答對 +5節！`;
+        resumeAfterQuestion();
+    }
+
+    function drawFoods() {
+        const now = Date.now();
+        foods.forEach(food => {
+            const fx = food.x * box + box/2;
+            const fy = food.y * box + box/2;
+            ctx.save();
+            ctx.translate(fx, fy);
+            // 發光脈動
+            const glow = Math.sin(now/120)*6;
+            ctx.shadowBlur = 12 + glow;
+            ctx.shadowColor = '#ff6600';
+            // 果實外框
+            ctx.fillStyle = themeSettings[currentTheme].fruit;
+            ctx.fillRect(-box/2+3, -box/2+3, box-6, box-6);
+            // 果實內點
+            ctx.fillStyle = themeSettings[currentTheme].fruitSpot;
+            ctx.fillRect(-box/2+8, -box/2, 4, 4);
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        });
+    }
+
+    function foodCountForLevel(lv) {
+        let a = 1, b = 1;
+        for (let i = 1; i < lv + 1; i++) { let t = a + b; a = b; b = t; }
+        return a * 2;
+    }
+    function createFood() {
+        const maxFood = Math.min(foodCountForLevel(level), 60);
+        if (foods.length < maxFood) foods.push(getRandomPosition());
+    }
+
+    function drawQuestion() {
+        if (!questionItem) return;
+        const now = Date.now();
+        let remain = questionTime - (now - questionStartTime);
+        if (remain <= 0) { questionItem = null; return; }
+        const cx = questionItem.x * box + box/2;
+        const cy = questionItem.y * box + box/2;
+        ctx.save();
+        ctx.translate(cx, cy);
+        // 脈動外框
+        const pulse = Math.sin(now / 150) * 4;
+        ctx.shadowBlur = 15 + pulse;
+        ctx.shadowColor = `hsl(${now / 10 % 360}, 100%, 60%)`;
+        ctx.fillStyle = `hsl(${now / 8 % 360}, 80%, 55%)`;
+        ctx.fillRect(-box/2+2, -box/2+2, box-4, box-4);
+        ctx.shadowBlur = 0;
+        // 問號
+        ctx.fillStyle = "#fff";
+        ctx.font = `${16 + Math.sin(now/200)*2}px monospace`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText("?", 0, 1);
+        ctx.restore();
+        // 倒數條
+        ctx.fillStyle = `hsl(${now / 12 % 360}, 100%, 50%)`;
+        ctx.fillRect(questionItem.x * box, questionItem.y * box - 6, box * (remain / questionTime), 4);
+    }
+
+    function spawnQuestion() {
+        if (!questionItem) {
+            questionItem = getRandomPosition();
+            questionStartTime = Date.now();
+            playSound("special");
+        }
+    }
+
+    function drawPoison() {
+        poisonFoods.forEach(poison => {
+            // size based on level: 2×2 at Lv4, 3×3 at Lv8, 4×4 at Lv16, etc.
+            const sizeFactor = poison.sizeFactor;
+            const size = box * sizeFactor;
+            const offset = (box - size) / 2;
+            ctx.fillStyle = themeSettings[currentTheme].poison;
+            ctx.fillRect(poison.x * box + offset - 1, poison.y * box + offset - 1, size + 2, size + 2);
+            ctx.fillStyle = themeSettings[currentTheme].poisonInner;
+            ctx.fillRect(poison.x * box + offset + 2, poison.y * box + offset + 2, size - 4, size - 4);
+        });
+    }
+
+    // 繪製旋渦（3x3）
+    function drawVortex() {
+        if (vortices.length === 0) return;
+        vortices.forEach(v => {
+            const size = box * v.sizeFactor; // always 3*box
+            const offset = (box - size) / 2;
+            // 繪製旋渦外框（淡藍色）
+            ctx.fillStyle = "rgba(0, 180, 255, 0.3)";
+            ctx.fillRect(v.x * box + offset, v.y * box + offset, size, size);
+            // 繪製內部旋轉線條（白色）
+            ctx.strokeStyle = "rgba(255,255,255,0.6)";
+            ctx.lineWidth = 2;
+            ctx.save();
+            ctx.translate((v.x + v.sizeFactor/2) * box, (v.y + v.sizeFactor/2) * box);
+            const t = (Date.now() % 2000) / 2000 * Math.PI * 2;
+            ctx.rotate(t);
+            ctx.beginPath();
+            ctx.moveTo(-box, 0);
+            ctx.lineTo(box, 0);
+            ctx.moveTo(0, -box);
+            ctx.lineTo(0, box);
+            ctx.stroke();
+            ctx.restore();
+        });
+    }
+
+    function createPoison() {
+        if (level >= 2 && poisonFoods.length < Math.min((level - 1) * 2, 10)) {
+            // 毒果根據等級決定區塊大小 (2×2、3×3、4×4…)
+            const sizeFactor = Math.max(1, Math.floor(Math.log2(level)));
+            let pos;
+            // 產生不與蛇身重疊的區塊位置
+            do {
+                pos = {
+                    x: Math.floor(Math.random() * (rows - sizeFactor + 1)),
+                    y: Math.floor(Math.random() * (rows - sizeFactor + 1))
+};
+// 音效套件對應音階
+                var overlap = p1.body.some(seg => seg.x >= pos.x && seg.x < pos.x + sizeFactor && seg.y >= pos.y && seg.y < pos.y + sizeFactor);
+                if (gameMode === 2) {
+                    overlap = overlap || p2.body.some(seg => seg.x >= pos.x && seg.x < pos.x + sizeFactor && seg.y >= pos.y && seg.y < pos.y + sizeFactor);
+                }
+                if (gameMode === 3) {
+                    overlap = overlap || p3.body.some(seg => seg.x >= pos.x && seg.x < pos.x + sizeFactor && seg.y >= pos.y && seg.y < pos.y + sizeFactor);
+                }
+            } while (overlap);
+            poisonFoods.push({ x: pos.x, y: pos.y, sizeFactor: sizeFactor });
+        }
+}
+    // === Power‑up 系統 ===
+    function spawnPowerUps(){
+        // 每 10 秒產生一個隨機道具（無機率門檻）
+        const types = ['magnet','shield'];
+        const type = types[Math.floor(Math.random()*types.length)];
+        let pos;
+        let onSnake, onOther;
+        do{
+            pos = { x: Math.floor(Math.random()*rows), y: Math.floor(Math.random()*rows) };
+            onSnake = p1.body.some(s=>s.x===pos.x&&s.y===pos.y) || (gameMode===2 && p2.body.some(s=>s.x===pos.x&&s.y===pos.y)) || (gameMode===3 && p3.body.some(s=>s.x===pos.x&&s.y===pos.y));
+            onOther = powerUps.some(p=>p.x===pos.x&&p.y===pos.y);
+        }while(onSnake||onOther);
+        powerUps.push({type, x:pos.x, y:pos.y, createdAt: Date.now()});
+    }
+    function cleanOldPowerUps(){
+        const now = Date.now();
+        powerUps = powerUps.filter(pu => now - pu.createdAt < 20000);
+    }
+    // === 定時炸彈區 ===
+    function spawnBombZone(size) {
+        let pos;
+        do {
+            pos = { x: Math.floor(Math.random() * (rows - size + 1)), y: Math.floor(Math.random() * (rows - size + 1)) };
+        } while (
+            p1.body.some(s => s.x >= pos.x && s.x < pos.x + size && s.y >= pos.y && s.y < pos.y + size) ||
+            (gameMode === 2 && p2.body.some(s => s.x >= pos.x && s.x < pos.x + size && s.y >= pos.y && s.y < pos.y + size)) ||
+            (gameMode === 3 && p3.body.some(s => s.x >= pos.x && s.x < pos.x + size && s.y >= pos.y && s.y < pos.y + size))
+        );
+        bombZones.push({ x: pos.x, y: pos.y, size: size, timer: 3000, createdAt: Date.now() });
+    }
+    function updateBombZones() {
+        const now = Date.now();
+        for (let i = bombZones.length - 1; i >= 0; i--) {
+            const bz = bombZones[i];
+            const elapsed = now - bz.createdAt;
+            if (elapsed >= bz.timer) {
+                // 從畫面側邊生成流星
+                const side = Math.floor(Math.random() * 4);
+                let sx, sy;
+                const cx = bz.x * box + (bz.size * box) / 2;
+                const cy = bz.y * box + (bz.size * box) / 2;
+                if (side === 0) { sx = -30; sy = cy + (Math.random() - 0.5) * 100; } // 左
+                else if (side === 1) { sx = canvas.width + 30; sy = cy + (Math.random() - 0.5) * 100; } // 右
+                else if (side === 2) { sx = cx + (Math.random() - 0.5) * 100; sy = -30; } // 上
+                else { sx = cx + (Math.random() - 0.5) * 100; sy = canvas.height + 30; } // 下
+                meteors.push({ x: sx, y: sy, targetX: cx, targetY: cy, progress: 0, speed: 0.08, size: bz.size, bombX: bz.x, bombY: bz.y });
+                bombZones.splice(i, 1);
+            }
+        }
+    }
+    function updateMeteors() {
+        for (let i = meteors.length - 1; i >= 0; i--) {
+            const m = meteors[i];
+            m.progress += m.speed;
+            if (m.progress >= 1) {
+                const ex = m.bombX, ey = m.bombY, sz = m.size;
+                [p1, ...(gameMode === 2 ? [p2] : []), ...(gameMode === 3 ? [p3] : [])].forEach(p => {
+                    if (!p.alive) return;
+                    for (let gx = ex; gx < ex + sz; gx++) {
+                        for (let gy = ey; gy < ey + sz; gy++) {
+                            if (gx === p.body[0].x && gy === p.body[0].y) {
+                                p.alive = false;
+                                return;
+                            }
+                        }
+                    }
+                });
+                emitBombVFX(m.targetX, m.targetY);
+                meteors.splice(i, 1);
+            }
+        }
+    }
+    // === AI 對手 ===
+    function moveAI() {
+        if (!p3.alive) return;
+        const head = p3.body[0];
+        // 找最近果實
+        let target = null, minDist = Infinity;
+        foods.forEach(f => {
+            const d = Math.hypot(f.x - head.x, f.y - head.y);
+            if (d < minDist) { minDist = d; target = f; }
+        });
+        if (!target) return;
+        const dirs = [
+            { dx: 0, dy: -1, name: 'UP' },
+            { dx: 0, dy: 1, name: 'DOWN' },
+            { dx: -1, dy: 0, name: 'LEFT' },
+            { dx: 1, dy: 0, name: 'RIGHT' }
+        ];
+        // 依目標方向排序（靠近目標的優先）
+        const inBomb = (nx, ny) => bombZones.some(bz => nx >= bz.x && nx < bz.x + bz.size && ny >= bz.y && ny < bz.y + bz.size);
+        const inPoison = (nx, ny) => poisonFoods.some(pf => nx >= pf.x && nx < pf.x + pf.sizeFactor && ny >= pf.y && ny < pf.y + pf.sizeFactor);
+        const scored = dirs.map(d => {
+            const nx = head.x + d.dx, ny = head.y + d.dy;
+            const dist = Math.hypot(target.x - nx, target.y - ny);
+            const blocked = nx < 0 || nx >= rows || ny < 0 || ny >= rows ||
+                p3.body.some(s => s.x === nx && s.y === ny) ||
+                (p1.alive && p1.body.some(s => s.x === nx && s.y === ny)) ||
+                inBomb(nx, ny) || inPoison(nx, ny);
+            return { ...d, dist, blocked, nx, ny };
+        }).sort((a, b) => a.blocked - b.blocked || a.dist - b.dist);
+        // 取最佳方向
+        const best = scored[0];
+        if (!best || best.blocked) { p3.alive = false; return; }
+        p3.dir = best.name;
+        let x = head.x + best.dx, y = head.y + best.dy;
+        // 邊界／自撞（已在上方檢查，但保留安全）
+        if (x < 0 || y < 0 || x >= rows || y >= rows) { p3.alive = false; return; }
+        if (p3.body.some(s => s.x === x && s.y === y)) { p3.alive = false; return; }
+        if (p1.alive && p1.body.some(s => s.x === x && s.y === y)) { p3.alive = false; return; }
+        // 道具/食物
+        checkPowerUps(x, y, p3);
+        let grow = checkItems(x, y, p3);
+        p3.body.unshift({ x, y });
+        if (!grow) p3.body.pop();
+        p3.score = p3.body.length;
+    }
+    function drawMeteors() {
+        meteors.forEach(m => {
+            const x = m.x + (m.targetX - m.x) * m.progress;
+            const y = m.y + (m.targetY - m.y) * m.progress;
+            ctx.save();
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ff6600';
+            ctx.fillStyle = '#ff4400';
+            ctx.beginPath();
+            ctx.arc(x, y, 5 + m.progress * 4, 0, Math.PI * 2);
+            ctx.fill();
+            // 尾焰
+            ctx.fillStyle = '#ffaa00';
+            ctx.beginPath();
+            ctx.arc(x - (m.targetX - m.x) * 0.02, y - (m.targetY - m.y) * 0.02, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+    }
+    function emitBombVFX(x, y) {
+        for (let i = 0; i < 20; i++) {
+            addParticle({
+                x, y,
+                vx: (Math.random() - 0.5) * 6,
+                vy: (Math.random() - 0.5) * 6,
+                size: Math.random() * 4 + 2,
+                life: 25,
+                color: Math.random() > 0.5 ? '#ff4400' : '#ffdd00'
+            });
+        }
+        screenShake = 10;
+    }
+    function drawBombZones() {
+        const now = Date.now();
+        bombZones.forEach(bz => {
+            const elapsed = now - bz.createdAt;
+            const remaining = bz.timer - elapsed;
+            const alpha = Math.max(0.2, remaining / bz.timer);
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            // 警告紅框脈動
+            const pulse = Math.sin(now / 80) * 2;
+            ctx.strokeStyle = '#ff0000';
+            ctx.lineWidth = 3 + pulse;
+            ctx.strokeRect(bz.x * box - 1, bz.y * box - 1, bz.size * box + 2, bz.size * box + 2);
+            // 半透明危險區域
+            ctx.fillStyle = `rgba(255, 0, 0, ${alpha * 0.15})`;
+            ctx.fillRect(bz.x * box, bz.y * box, bz.size * box, bz.size * box);
+            // 倒數秒數
+            ctx.fillStyle = '#ff4444';
+            ctx.font = '14px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(Math.ceil(remaining / 1000) + 's', bz.x * box + bz.size * box / 2, bz.y * box + bz.size * box / 2);
+            ctx.restore();
+        });
+    }
+    function drawPowerUps(){
+        cleanOldPowerUps();
+        const now = Date.now();
+        const iconMap = {
+            magnet:{color:'#f0f', char:'🧲'},
+            shield:{color:'#ff8800', char:'🛡'}
+        };
+        powerUps.forEach(pu=>{
+            const info = iconMap[pu.type] || {color:'#fff', char:'?'};
+            ctx.save();
+            ctx.translate(pu.x*box+box/2, pu.y*box+box/2);
+            // 外框發光效果（脈動）
+            const glow = Math.sin(now/150)*6;
+            ctx.shadowBlur = 12 + glow;
+            ctx.shadowColor = info.color;
+            ctx.fillStyle = info.color;
+            ctx.fillRect(-box/2+2, -box/2+2, box-4, box-4);
+            ctx.shadowBlur = 0;
+            // 中央圖示
+            ctx.fillStyle = '#fff';
+            ctx.font = '16px monospace';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(info.char, 0, 0);
+            ctx.restore();
+        });
+    }
+    // 檢查玩家取得道具
+    function checkPowerUps(x,y,p){
+        for(let i=0;i<powerUps.length;i++){
+            const pu = powerUps[i];
+            if(pu.x===x && pu.y===y){
+                powerUps.splice(i,1);
+                if(pu.type==='magnet'){
+                    if (p.magnetTimer) clearTimeout(p.magnetTimer);
+                    p.magnetActive = true;
+                    p.magnetTimer = setTimeout(()=>{p.magnetActive=false; p.magnetTimer=null;},5000);
+                    document.getElementById("status").textContent = "🧲 磁鐵啟動！果實正在靠近！";
+                    playSound('special');
+                }else if(pu.type==='shield'){
+                    p.shieldActive = true;
+                    document.getElementById("status").textContent = "🛡️ 獲得護盾！抵擋一次毒果！";
+                    playSound('special');
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+    function updateMagnet() {
+        const anyMagnet = p1.magnetActive || (gameMode === 2 && p2.alive && p2.magnetActive) || (gameMode === 3 && p3.alive && p3.magnetActive);
+        if (!anyMagnet) return;
+        foods.forEach(f => {
+            let targetX, targetY;
+            if (p1.magnetActive) {
+                targetX = p1.body[0].x;
+                targetY = p1.body[0].y;
+            } else if (gameMode === 2 && p2.alive && p2.magnetActive) {
+                targetX = p2.body[0].x;
+                targetY = p2.body[0].y;
+            } else if (gameMode === 3 && p3.alive && p3.magnetActive) {
+                targetX = p3.body[0].x;
+                targetY = p3.body[0].y;
+            } else {
+                return;
+            }
+            const dx = targetX - f.x;
+            const dy = targetY - f.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 0.5) {
+                const speed = 1.5;
+                f.x += (dx / dist) * speed;
+                f.y += (dy / dist) * speed;
+                f.x = Math.round(f.x);
+                f.y = Math.round(f.y);
+            }
+        });
+        // 自動吃下與蛇頭同格的果實
+        for (let i = foods.length - 1; i >= 0; i--) {
+            const f = foods[i];
+            const eat = (f.x === p1.body[0].x && f.y === p1.body[0].y) ||
+                        (gameMode === 2 && p2.alive && f.x === p2.body[0].x && f.y === p2.body[0].y) ||
+                        (gameMode === 3 && p3.alive && f.x === p3.body[0].x && f.y === p3.body[0].y);
+            if (eat) {
+                const fx = f.x, fy = f.y;
+                foods.splice(i, 1);
+                playSound("eat");
+                emitEatVFX(fx, fy);
+                achievementStats.totalEaten++;
+                checkAchievements();
+                createFood();
+                addCombo();
+                // 增加得分蛇身
+                const owner = (gameMode === 2 && p2.alive && f.x === p2.body[0].x && f.y === p2.body[0].y) ? p2 :
+                              (gameMode === 3 && p3.alive && f.x === p3.body[0].x && f.y === p3.body[0].y) ? p3 : p1;
+                owner.body.push({ x: owner.body[owner.body.length-1].x, y: owner.body[owner.body.length-1].y });
+                owner.score = owner.body.length;
+            }
+        }
+    }
+    // 旋渦循環：等級 >=3 時每 30 秒產生 3x3 旋渦，持續 15 秒
+    function startVortexCycle() {
+        // Vortex feature disabled – no vortex will be generated.
+    }
+
+    function resumeAfterQuestion() {
+        let count = 3;
+        // 在倒數期間持續渲染畫布
+        let previewTimer = setInterval(() => draw(true), 100);
+        let timer = setInterval(() => {
+            if (count >= 0) {
+                countdownText = `繼續遊戲 ${count}`;
+            } else {
+                countdownText = "GO";
+            }
+            count--;
+            if (count < -1) {
+                clearInterval(timer);
+                clearInterval(previewTimer);
+                countdownText = "";
+                setTimeout(() => {
+                    document.getElementById("status").textContent = "遊戲繼續";
+                    questionPause = false;
+                    gameLoop = setInterval(draw, gameSpeed);
+                }, 500);
+            }
+        }, 1000);
+    }
+
+    function updateLevel() {
+        function calcLevel(score) {
+            let lv = 1;
+            while (score >= Math.pow(2, lv)) lv++;
+            return lv;
+        }
+        const prevMaxLevel = Math.max(p1.level, p2.level, p3.level);
+        p1.level = calcLevel(p1.score);
+        p2.level = calcLevel(p2.score);
+        p3.level = calcLevel(p3.score);
+        const maxLevel = Math.max(p1.level, p2.level, p3.level);
+        level = maxLevel;
+        if (maxLevel > achievementStats.maxLevel) {
+            achievementStats.maxLevel = maxLevel;
+            checkAchievements();
+        }
+        if (gameMode === 3 && p3.level > achievementStats.aiMaxLevel) {
+            achievementStats.aiMaxLevel = p3.level;
+            checkAchievements();
+        }
+
+        if (maxLevel !== prevMaxLevel) {
+            if (prevMaxLevel < 3 && maxLevel >= 3) startVortexCycle();
+            if (maxLevel > prevMaxLevel) {
+                playSound("levelup");
+                speak(`Level ${maxLevel}`);
+                levelUpMessage = `Lv.${maxLevel} UP`;
+                levelUpAlpha = 0.8;
+                levelUpTimer = 60;
+                clearInterval(gameLoop);
+                if (gameRunning && !questionPause) gameLoop = setInterval(draw, gameSpeed);
+                if (maxLevel >= 2) createPoison();
+                document.getElementById("status").textContent = `📈 Lv.${maxLevel} UP`;
+            }
+        }
+    }
+    
+    // 統一雙人的分數與最高分顯示格式（放在倒數與畫布之間的資訊區）
+    function updateDisplay() {
+        p1.score = p1.body.length;
+        p2.score = p2.body.length;
+        p3.score = p3.body.length;
+        document.getElementById("sb1P").textContent = `🟩 1P: ${p1.score} Lv.${p1.level}${comboCount > 1 ? ` 🔥x${comboCount}` : ''}`;
+        document.getElementById("sb2P").textContent = `🟦 2P: ${p2.score} Lv.${p2.level}`;
+        document.getElementById("sbAI").textContent = `🤖 AI: ${p3.score} Lv.${p3.level}`;
+        document.getElementById("sbHigh").textContent = `🏆 最高分: ${highScore} Lv.${highLevel}`;
+    }
+
+    //================================
+    // 爆炸與結束遊戲結算
+    //================================
+    function explode(targetBody, customMsg = "") {
+        if (exploding) return;
+        gameRunning = false;
+        exploding = true;
+        clearInterval(gameLoop);
+        clearInterval(itemTimer);
+        clearInterval(bombTimer);
+        playSound("hit");
+        particles = [];
+
+        let startX = targetBody.length > 0 ? targetBody[0].x : 10;
+        let startY = targetBody.length > 0 ? targetBody[0].y : 10;
+
+        for (let i = 0; i < 120; i++) {
+            particles.push({
+                x: startX * box + 10, y: startY * box + 10,
+                vx: (Math.random() - 0.5) * 14, vy: (Math.random() - 0.5) * 14,
+                life: 40, size: Math.random() * 8 + 3
+            });
+        }
+
+        setTimeout(() => playSound("explode"), 300);
+        let explosionTimer = setInterval(() => {
+            ctx.fillStyle = "#1b3a24";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.x += p.vx; p.y += p.vy; p.life--;
+                ctx.fillStyle = "#FFD700";
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+            });
+            particles = particles.filter(p => p.life > 0);
+            if (particles.length === 0) {
+                clearInterval(explosionTimer);
+                gameOver(customMsg);
+            }
+        }, 30);
+    }
+
+    // 遊戲結算顯示
+// 遊戲結算顯示 (更新版)
+    function gameOver(winMsg) {
+        stopBGM();
+        gameLoop = null; itemTimer = null;
+        gameRunning = false; exploding = false;
+        playSound("gameover");
+        speak("Game Over");
+
+        // 判定與更新歷史最高分
+        let currentScore = (gameMode === 2) ? Math.max(p1.score, p2.score) : (gameMode === 3 ? Math.max(p1.score, p3.score) : p1.score);
+        if (gameMode === 3 && p1.alive && !p3.alive) {
+            achievementStats.aiWins = (achievementStats.aiWins || 0) + 1;
+            checkAchievements();
+        }
+        if (currentScore > highScore) {
+            highScore = currentScore;
+            highLevel = level;
+            localStorage.setItem("snakeHighScore", highScore);
+            localStorage.setItem("snakeHighLevel", highLevel);
+        }
+
+        // 組合結算顯示文字
+        let msg = "";
+        if (gameMode === 1) {
+            msg = `💥GAME OVER💥\n目前分數:${p1.score}/Lv.${p1.level}\n歷史最高分:${highScore}/Lv.${highLevel}`;
+        } else if (gameMode === 3) {
+            let resultText = "";
+            if (p1.score > p3.score) resultText = "🏆 玩家 1 獲勝！";
+            else if (p3.score > p1.score) resultText = "🤖 AI 獲勝！";
+            else resultText = "🤝 平手！";
+            msg = `${resultText}\n\n💥GAME OVER💥\n1P 目前分數:${p1.score}/Lv.${p1.level}\nAI 目前分數:${p3.score}/Lv.${p3.level}\n歷史最高分:${highScore}/Lv.${highLevel}`;
+        } else {
+            // 判斷雙人勝負
+            let resultText = "";
+            if (p1.score > p2.score) {
+                resultText = "🏆 玩家 1 (綠蛇) 獲勝！";
+            } else if (p2.score > p1.score) {
+                resultText = "🏆 玩家 2 (藍蛇) 獲勝！";
+            } else {
+                resultText = "🤝 分數相同，平手！";
+            }
+
+            msg = `${resultText}\n\n💥GAME OVER💥\n1P 目前分數:${p1.score}/Lv.${p1.level}\n2P 目前分數:${p2.score}/Lv.${p2.level}\n歷史最高分:${highScore}/Lv.${highLevel}`;
+        }
+        // alert(msg); // 已改為畫布內顯示 Game Over，使用結束動畫取代
+
+        // 保存結束資訊，供 drawEnding 使用
+        gameOverInfo = {
+            p1Score: p1.score,
+            p2Score: p2.score,
+            p3Score: p3.score,
+            level: Math.max(p1.level, p2.level, p3.level),
+            highScore: highScore,
+            highLevel: highLevel
+        };
+        showGameOverOverlay();
+
+        document.getElementById("status").textContent = winMsg || "💥 GAME OVER 💥";
+        function showGameOverOverlay(){
+    // 半透明黑色背景
+    ctx.fillStyle = "rgba(0,0,0,0.7)";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    // 顯示 GAME OVER 文字
+    ctx.fillStyle = "#FFD700";
+    ctx.font = "36px monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("GAME OVER", canvas.width/2, canvas.height/2 - 40);
+    ctx.font = "24px monospace";
+    if (gameMode===1) {
+        ctx.fillText(`Score: ${p1.score}  Lv.${level}`, canvas.width/2, canvas.height/2);
+    } else if (gameMode===3) {
+        ctx.fillText(`1P: ${p1.score}  AI: ${p3.score}`, canvas.width/2, canvas.height/2);
+        let winTxt = "";
+        if (!p1.alive && !p3.alive) winTxt = "🤝 平手！";
+        else if (!p1.alive) winTxt = "🤖 AI 獲勝！";
+        else winTxt = "🏆 玩家 1 獲勝！";
+        ctx.font = "20px monospace";
+        ctx.fillText(winTxt, canvas.width/2, canvas.height/2 + 35);
+    } else {
+        ctx.fillText(`1P: ${p1.score}  2P: ${p2.score}`, canvas.width/2, canvas.height/2);
+    }
+    // 2 秒後重顯開始按鈕
+setTimeout(()=>{
+        // 恢復所有模式按鈕
+        document.getElementById("start1PBtn").style.display = "inline-block";
+        document.getElementById("start2PBtn").style.display = "inline-block";
+        document.getElementById("startAIBtn").style.display = "inline-block";
+        
+        document.getElementById("startLevelBtn").style.display = "inline-block";
+
+        // 恢復狀態欄顯示（已在畫布外顯示倒數）
+        document.getElementById('status').style.display = 'block';
+        document.getElementById('status').textContent = '';
+    },2000);
+}
+    }
+
+    // 啟動流程與按鈕事件
+    function startWithMode(mode) {
+        if (gameRunning) return;
+        stopBGM();
+        resetGame(mode);
+        if (mode === 2 && !achievementStats.dualPlayed) {
+            achievementStats.dualPlayed = true;
+            checkAchievements();
+        }
+        if (mode === 3 && !achievementStats.aiPlayed) {
+            achievementStats.aiPlayed = true;
+            checkAchievements();
+        }
+        // hide start buttons during a game session
+        document.getElementById("start1PBtn").style.display = "none";
+        document.getElementById("start2PBtn").style.display = "none";
+        document.getElementById("startAIBtn").style.display = "none";
+
+        spawnQuestion();
+        spawnPowerUps(); // 初始產生一個道具
+        draw(true);
+
+        let count = 3;
+        let previewTimer = setInterval(() => draw(true), 100);
+        let timer = setInterval(() => {
+            if (count >= 0) {
+                countdownText = count.toString();
+            } else {
+                countdownText = "GO!";
+            }
+            count--;
+        if (count < -1) {
+            clearInterval(timer);
+            clearInterval(previewTimer);
+            // 倒數結束，立即啟動遊戲
+            gameRunning = true;
+            gameStartTime = Date.now();
+            speak("開始遊戲");
+            startBGM();
+            draw(); // 首次正式繪製（不預覽）
+            gameLoop = setInterval(draw, gameSpeed);
+            itemTimer = setInterval(() => {
+                spawnQuestion();
+                createFood();
+                createPoison();
+                spawnPowerUps();
+            }, 10000);
+            bombTimer = setInterval(() => {
+                if (level >= 4) {
+                    const bombCount = Math.max(0, level - 3);
+                    const bombSize = Math.min(2 + Math.floor((level - 4) / 2), 4);
+                    for (let i = bombZones.length; i < bombCount && i < 3; i++) {
+                        spawnBombZone(bombSize);
+                    }
+                }
+            }, 5000);
+            countdownText = "";
+        }
+        }, 1000);
+    }
+
+    document.getElementById("start1PBtn").onclick = () => { clearInterval(gameLoop); clearInterval(itemTimer); clearInterval(bombTimer); startWithMode(1); };
+    document.getElementById("start2PBtn").onclick = () => { clearInterval(gameLoop); clearInterval(itemTimer); clearInterval(bombTimer); startWithMode(2); };
+    document.getElementById("startAIBtn").onclick = () => { clearInterval(gameLoop); clearInterval(itemTimer); clearInterval(bombTimer); startWithMode(3); };
+
+    // 隱藏成就：點擊標題
+    document.querySelector('h1').onclick = () => {
+        if (!unlockedAchievements.includes('hiddenClick')) {
+            unlockedAchievements.push('hiddenClick');
+            const def = achievementDefs.find(d => d.id === 'hiddenClick');
+            if (def) showAchievementSlide(def);
+            playSound('levelup');
+            saveAchievements();
+            updateAchievementPanel();
+        }
+    };
+    // 點擊「遊戲說明」重置成就與分數
+    document.querySelector('.game-panel h2').onclick = () => {
+        if (confirm('確定要重置所有成就與最高分記錄嗎？')) {
+            localStorage.removeItem(ACHIEVEMENT_KEY);
+            localStorage.removeItem('snakeHighScore');
+            localStorage.removeItem('snakeHighLevel');
+            unlockedAchievements = [];
+            achievementStats = { totalEaten: 0, maxLevel: 0, maxCombo: 0, dualPlayed: false, survive5: false, aiPlayed: false, aiWins: 0, aiMaxLevel: 0 };
+            highScore = 1;
+            highLevel = 1;
+            updateAchievementPanel();
+            updateDisplay();
+            alert('已重置所有成就與最高分記錄！');
+        }
+    };
+
+    loadAchievements();
+    resetGame(1);
+    draw(true);
+};
+  </script>
+</body>
+</html>
