@@ -1,0 +1,171 @@
+{
+  "_note": "澎湖頭足教育遊戲 - 真實生物素材庫。素材均自 Wikimedia Commons 下載（優先合法授權來源）；禁止 AI 圖片/插畫冒充。整合範圍：現有 6 種遊戲物種（素材+整合）；其餘目標物種收錄學名研究與分類歧義記錄。",
+  "updated": "2026-08-09",
+  "species": [
+    {
+      "id": "suoguan",
+      "displayName": "小管",
+      "formal": "鎖管",
+      "scientificName": "Uroteuthis edulis",
+      "asset": "assets/cephalopods/uroteuthis-edulis.jpg",
+      "assetType": "jpg",
+      "inGame": true,
+      "sourceUrl": "https://www.inaturalist.org/observations/69139625",
+      "originalUrl": "https://inaturalist-open-data.s3.amazonaws.com/photos/112123093/original.jpg",
+      "author": "re_nebel (iNaturalist observation 69139625)",
+      "authorUrl": "https://www.inaturalist.org/users/5775179",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+      "resolution": "480x640 (scaled from 1536x2048)",
+      "qualityGrade": "research",
+      "observations": 2,
+      "taxonomyNote": "劍尖槍魷（尾槍魷科常見經濟種）Uroteuthis edulis (Hoyle, 1885)，澎湖俗稱透抽／真小管。本次改用活體/自然型態照片：iNaturalist research grade、兩筆獨立鑑定、地點為日本廣島因島三庄町沿海。取代舊檔案（該檔為 Wikimedia Commons 上此分類唯一的既有合法檔案、但內容為壽司（Sushiro 餐廳照），不符合需求）。"
+    },
+    {
+      "id": "xiaoquan",
+      "displayName": "白魷（小卷）",
+      "scientificName": "Uroteuthis duvaucelii",
+      "asset": "assets/cephalopods/uroteuthis-duvaucelii.jpg",
+      "assetType": "jpg",
+      "inGame": true,
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Uroteuthis_duvaucelii_122342233.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/5/5b/Uroteuthis_duvaucelii_122342233.jpg",
+      "author": "Karim Haddad (iNaturalist observation 122342233)",
+      "authorUrl": "https://www.inaturalist.org/users/1082970",
+      "license": "CC BY 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+      "taxonomyNote": "杜氏槍魷（白魷、小卷）。農委會『臺灣常見經濟性水產動植物圖鑑』以 Uroteuthis duvaucelii 記名，俗稱鎖管、小管、小卷、透抽、中卷。與遊戲現用學名一致。"
+    },
+    {
+      "id": "huazhi",
+      "displayName": "花枝",
+      "formal": "虎斑烏賊",
+      "scientificName": "Sepia pharaonis",
+      "asset": "assets/cephalopods/sepia-pharaonis.jpg",
+      "assetType": "jpg",
+      "inGame": true,
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Sepia_pharaonis.jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/4/4e/Sepia_pharaonis.jpg",
+      "author": "Silke Baron (via Flickr)",
+      "authorUrl": "https://www.flickr.com/people/37707866@N00",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "taxonomyNote": "虎斑烏賊（法老王烏賊）Sepia pharaonis Ehrenberg, 1831。中研院台灣貝類名錄確認。"
+    },
+    {
+      "id": "ruansi",
+      "displayName": "軟絲",
+      "formal": "擬烏賊",
+      "scientificName": "Sepioteuthis lessoniana",
+      "asset": "assets/cephalopods/sepioteuthis-lessoniana.gif",
+      "assetType": "gif",
+      "inGame": true,
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Sepioteuthis_lessoniana_2010.ogv",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/7/77/Sepioteuthis_lessoniana_2010.ogv",
+      "author": "Nesnad",
+      "license": "CC BY-SA 3.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0",
+      "sourceKind": "video-converted",
+      "conversionNote": "原始 CC BY-SA 3.0 影片（1080x720，11 秒），以 ffmpeg 裁切 6 秒、縮放至 240px、64 色調色盤、循環播放。"
+    },
+    {
+      "id": "zhangyu",
+      "displayName": "章魚",
+      "formal": "真蛸",
+      "scientificName": "Octopus vulgaris",
+      "asset": "assets/cephalopods/octopus-vulgaris.gif",
+      "assetType": "gif",
+      "inGame": true,
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Octopus_Vulgaris_-_Poulpe_commun.webm",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/9/9e/Octopus_Vulgaris_-_Poulpe_commun.webm",
+      "author": "Ericsfr",
+      "license": "CC BY-SA 4.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+      "sourceKind": "video-converted",
+      "conversionNote": "原始 CC BY-SA 4.0 影片（1280x720，63 秒），自片段中段取 6 秒（章魚游泳畫面），縮放至 240px、64 色調色盤、循環播放。"
+    },
+    {
+      "id": "wusei",
+      "displayName": "烏賊（金烏賊）",
+      "scientificName": "Sepia esculenta",
+      "asset": "assets/cephalopods/sepia-esculenta.jpg",
+      "assetType": "jpg",
+      "inGame": true,
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Golden_Cuttlefish_(Sepia_esculenta)_(49152874797).jpg",
+      "originalUrl": "https://upload.wikimedia.org/wikipedia/commons/6/66/Golden_Cuttlefish_%28Sepia_esculenta%29_%2849152874797%29.jpg",
+      "author": "Rickard Zerpe",
+      "authorUrl": "https://www.flickr.com/people/125265709@N08",
+      "license": "CC BY 2.0",
+      "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+      "taxonomyNote": "金烏賊（真烏賊）Sepia esculenta Hoyle, 1885。臺灣貝類名錄及 FAO 頭足類圖集確認。"
+    },
+    {
+      "id": "duanshao",
+      "displayName": "短蛸",
+      "inGame": false,
+      "assetStatus": "missing",
+      "taxonomyNote": "短蛸。台灣生物多樣性網絡採用 Amphioctopus fangsiao（飯蛸）。ITIS 標明 Octopus ocellatus = Octopus fangsiao 為同種，O. ocellatus 為無效舊組合名。遊戲目前未包含此物種；需確認是否新增。"
+    },
+    {
+      "id": "nisuwazei",
+      "displayName": "擬烏賊",
+      "inGame": false,
+      "taxonomyNote": "與「軟絲／軟翅仔」為同一物種 Sepioteuthis lessoniana（農業部食農教育平臺列為鎖管科擬烏賊屬，俗稱軟絲、軟翅仔）。若新增此名稱，應與 ruansi 共用素材，不另下載。"
+    },
+    {
+      "id": "changwansuoguan",
+      "displayName": "長腕鎖管",
+      "inGame": false,
+      "taxonomyNote": "此名稱存在俗名／分類歧義，未在台灣生物多樣性網絡、中研院台灣貝類名錄、科博館、水產試驗所找到正式『長腕鎖管』學名。鎖管科現行經濟種以 Uroteuthis（尾槍魷屬）與 Loliolus（擬槍魷屬）為主，長腕鎖管疑為俗名混用，標記 MISSING，禁止臆測。"
+    },
+    {
+      "id": "jiwazei",
+      "displayName": "姬烏賊",
+      "inGame": false,
+      "taxonomyNote": "未在台灣生物多樣性網絡／中研院貝類名錄確認正式種；『姬烏賊』可能是小型 Sepia 屬物種俗名。不臆測學名，未下載素材，標記 MISSING。"
+    },
+    {
+      "id": "huojianyuan",
+      "displayName": "火箭魷",
+      "inGame": false,
+      "taxonomyNote": "『火箭魷』為香港俗稱，對應中國槍魷 Uroteuthis chinensis（台灣鎖管／透抽）。學名 Uroteuthis (Photololigo) chinensis (Gray, 1849)，台灣目前以『中國槍魷／中國鎖管』記名。與遊戲現有種不同，尚未整合。"
+    },
+    {
+      "id": "juxingzhangyu",
+      "displayName": "巨型章魚",
+      "scientificName": "Enteroctopus dofleini",
+      "inGame": false,
+      "assetStatus": "missing",
+      "taxonomyNote": "北太平洋巨型章魚，學名 Enteroctopus dofleini（WoRMS 採用）。台灣周邊紀錄多為 FAO 頭足類圖集中的 Octopus dofleini 異名。未於本輪取得經確認之合法素材，標記 MISSING。"
+    },
+    {
+      "id": "nitai_zhangyu",
+      "displayName": "擬態章魚",
+      "scientificName": "Thaumoctopus mimicus",
+      "inGame": false,
+      "taxonomyNote": "擬態章魚 Thaumoctopus mimicus 學名已確認。不在現行遊戲物種範圍，未下載素材。"
+    },
+    {
+      "id": "lanhuangzhangyu",
+      "displayName": "藍環章魚",
+      "scientificName": "Hapalochlaena sp.",
+      "inGame": false,
+      "assetStatus": "missing",
+      "taxonomyNote": "藍環章魚屬 Hapalochlaena。屬級確認即可，不臆測特定種（如 Hapalochlaena maculosa）。標記 MISSING。"
+    },
+    {
+      "id": "dawangyuan",
+      "displayName": "大王魷",
+      "scientificName": "Architeuthis dux",
+      "inGame": false,
+      "taxonomyNote": "大王魷學名公認 Architeuthis dux。不在現行遊戲範圍，未下載素材。"
+    },
+    {
+      "id": "xiguiyuan",
+      "displayName": "吸血鬼魷",
+      "scientificName": "Vampyroteuthis infernalis",
+      "inGame": false,
+      "taxonomyNote": "吸血鬼魷學名公認 Vampyroteuthis infernalis，為吸血鬼魷目唯一物種。不在現行遊戲範圍，未下載素材。"
+    }
+  ]
+}

@@ -68,6 +68,40 @@ const CFG = {
   SAVE_KEY: 'penghu_ceph_save_v1'
 };
 
+/* ============================================================
+   [GameState] 統一狀態機
+   任何 Popup / 選單開啟時，背景遊戲一律凍結（不偷偷繼續更新）。
+   HOME       主選單
+   SETTINGS   設定
+   TEST_MODE  測試模式設定
+   PLAYING    進行遊戲（測試模式也是 PLAYING + testing 旗標）
+   PAUSED     暫停選單（☰）
+   MISSION    任務簡報（brief）
+   INFO_CARD  資訊小卡（捕獲後）
+   SHOP       商城
+   ENCYCLOPEDIA 圖鑑
+   GAME_OVER  結束關卡（timeout）
+   CLEAR      關卡完成
+   END        全部完成
+   HELP       研究員手冊
+   ============================================================ */
+const GameState = {
+  HOME: 'menu',
+  SETTINGS: 'settings',
+  TEST_MODE: 'test',
+  PLAYING: 'play',
+  PAUSED: 'paused',
+  MISSION: 'brief',
+  INFO_CARD: 'card',
+  CONSERVATION_CHOICE: 'choice',
+  SHOP: 'shop',
+  ENCYCLOPEDIA: 'encyclopedia',
+  GAME_OVER: 'gameover',
+  CLEAR: 'clear',
+  END: 'end',
+  HELP: 'help'
+};
+
 /* --- 隨機與數學工具 --- */
 function rand(a, b) { return a + Math.random() * (b - a); }
 function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
@@ -89,6 +123,8 @@ function loadSave() {
   return null;
 }
 function saveState(state) {
+  /* 測試模式：不得污染正式存檔（除非明確儲存測試結果） */
+  if (state && state.test && state.test.active) return;
   try {
     localStorage.setItem(CFG.SAVE_KEY, JSON.stringify({
       points: state.points,
@@ -279,6 +315,7 @@ const Sfx = (() => {
 const SPECIES = [
   {
     id: 'xiaoquan', name: '白魷（小卷）', latin: 'Uroteuthis duvaucelii',
+    asset: 'uroteuthis-duvaucelii.jpg',
     local: '小卷、噘仔卷', habitat: '近岸淺海', time: '夜間', season: '夏季',
     diet: '小魚、磷蝦、甲殼類幼體',
     feature: '身體半透明、遊速極快，是澎湖夏季夜釣的明星。',
@@ -294,7 +331,8 @@ const SPECIES = [
     escape: 'dart', escapeHint: '白魷游泳速度快，受到驚嚇時容易迅速逃離。'
   },
   {
-    id: 'suoguan', name: '小管', formal: '鎖管', latin: 'Uroteuthis edulis',
+    id: 'suoguan', name: '小管', latin: 'Uroteuthis edulis',
+    asset: 'uroteuthis-edulis.jpg',
     local: '透抽、真小管', habitat: '近海、海草床', time: '晨昏', season: '春～秋季',
     diet: '小魚、蝦類',
     feature: '體型比白魷大，背部有淡紫色的斑點。',
@@ -311,6 +349,7 @@ const SPECIES = [
   },
   {
     id: 'huazhi', name: '花枝', latin: 'Sepia pharaonis',
+    asset: 'sepia-pharaonis.jpg',
     local: '虎斑烏賊、花枝', habitat: '沙泥淺海', time: '白天', season: '全年（秋冬最肥）',
     diet: '小魚、蝦、螃蟹',
     feature: '重量級選手，體側有一圈波浪狀的鰭，會變換花紋。',
@@ -327,6 +366,7 @@ const SPECIES = [
   },
   {
     id: 'ruansi', name: '軟絲', latin: 'Sepioteuthis lessoniana',
+    asset: 'sepioteuthis-lessoniana.gif',
     local: '軟翅仔、擬烏賊', habitat: '珊瑚礁、岩礁', time: '晨昏', season: '夏季～初秋',
     diet: '小魚、蝦類',
     feature: '全身包覆一圈橢圓形鰭，會以體色變化躲避敵人。',
@@ -343,6 +383,7 @@ const SPECIES = [
   },
   {
     id: 'zhangyu', name: '章魚', latin: 'Octopus vulgaris',
+    asset: 'octopus-vulgaris.gif',
     local: '真蛸、章魚', habitat: '岩礁', time: '夜晚', season: '全年（秋冬最肥）',
     diet: '螃蟹、貝類',
     feature: '八隻腕足、智慧超群，會鑽進岩縫躲藏。',
@@ -359,6 +400,7 @@ const SPECIES = [
   },
   {
     id: 'wusei', name: '烏賊（金烏賊）', latin: 'Sepia esculenta',
+    asset: 'sepia-esculenta.jpg',
     local: '墨賊、烏賊', habitat: '沙泥淺海、海草床', time: '白天', season: '秋～冬季',
     diet: '小魚、小蝦',
     feature: '遇到危險會噴出墨汁，掩護自己逃脫。',
@@ -372,21 +414,291 @@ const SPECIES = [
     timeW: { day: 1.5, night: 0.5, dusk: 1.0, dawn: 1.2 },
     depth: [0.40, 0.90], behavior: 'ink', palette: ['#c8b6a0', '#7a6a55', '#a89880'],
     escape: 'inkrand', escapeHint: '烏賊會噴出墨汁，再朝隨機方向迅速逃離。'
+  },
+  {
+    id: 'duanxiao', name: '短蛸', latin: 'Octopus minor',
+    local: '短腿仔、小章魚', habitat: '潮間帶、淺岩礁', time: '夜晚', season: '全年',
+    diet: '螃蟹、貝類、小型甲殼類',
+    feature: '腕短體圓、體色多變，是澎湖潮池常見的小型章魚。',
+    cuisine: '小章魚快炒、涼拌，肉質Ｑ彈。',
+    conserve: '未滿 200g 請放生，讓短蛸長大再捕。',
+    fact: '短蛸會在螺殼裡產卵，母親護卵到孵化才離開。',
+    weight: 1.0, value: 55, speed: 2.2, flee: 0.45, size: 20,
+    starSeason: 3, starTime: 4, starShore: 5, starWeight: 1,
+    habitatW: { harbor: 0.2, coastal: 0.25, sandy: 0.15, reef: 0.7, seagrass: 0.2, night: 0.75, intertidal: 0.85 },
+    seasonW: { spring: 1.2, summer: 1.2, autumn: 1.2, winter: 1.1 },
+    timeW: { day: 0.5, night: 2.2, dusk: 1.2, dawn: 1.0 },
+    depth: [0.55, 0.96], behavior: 'hide', palette: ['#c08a6a', '#7a4a33', '#e0b896'],
+    escape: 'shrink', escapeHint: '短蛸會縮成一團躲進石縫，難以拉回船上。'
+  },
+  {
+    id: 'nini', name: '擬烏賊', latin: 'Loligo japonica',
+    local: '日本槍魷仔', habitat: '近岸淺海', time: '夜晚', season: '夏季',
+    diet: '小魚、磷蝦',
+    feature: '小型槍魷，外套膜細長，常結群在近岸游動。',
+    cuisine: '炸小卷、汆燙小卷，夜市人氣小吃。',
+    conserve: '體長未滿 6 公分請放生。',
+    fact: '擬烏賊成群追逐時，海面會閃爍著牠們的螢光。',
+    weight: 1.2, value: 60, speed: 5.0, flee: 0.6, size: 25,
+    starSeason: 4, starTime: 4, starShore: 4, starWeight: 1,
+    habitatW: { harbor: 0.25, coastal: 0.6, sandy: 0.35, reef: 0.2, seagrass: 0.5, night: 0.85, intertidal: 0.1 },
+    seasonW: { spring: 1.1, summer: 2.0, autumn: 1.3, winter: 0.4 },
+    timeW: { day: 0.6, night: 2.2, dusk: 1.4, dawn: 0.8 },
+    depth: [0.30, 0.70], behavior: 'hover', palette: ['#e6f0f4', '#a8c6d4', '#7fa8bb'],
+    escape: 'dart', escapeHint: '擬烏賊受驚時會高速竄入深處。'
+  },
+  {
+    id: 'changwan', name: '長腕鎖管', latin: 'Uroteuthis chinensis',
+    local: '大尾、透抽', habitat: '近海、深水', time: '晨昏', season: '春～秋季',
+    diet: '小魚、蝦類',
+    feature: '體型修長、鰭長達外套膜後半，游速極快。',
+    cuisine: '三杯中卷、鹽烤透抽，燒烤攤的明星。',
+    conserve: '產卵期請避免捕捉抱卵個體。',
+    fact: '長腕鎖管靠噴射推進，短時間內可達時速 30 公里。',
+    weight: 2.2, value: 85, speed: 4.5, flee: 0.6, size: 26,
+    starSeason: 4, starTime: 4, starShore: 3, starWeight: 2,
+    habitatW: { harbor: 0.1, coastal: 0.5, sandy: 0.3, reef: 0.35, seagrass: 0.4, night: 0.7, intertidal: 0.05 },
+    seasonW: { spring: 1.4, summer: 1.6, autumn: 1.3, winter: 0.6 },
+    timeW: { day: 1.0, night: 1.3, dusk: 1.7, dawn: 1.6 },
+    depth: [0.35, 0.75], behavior: 'hover', palette: ['#f2d9d0', '#b9887a', '#8a5f55'],
+    escape: 'wiggle', escapeHint: '長腕鎖管加速逃離，動作又急又快。'
+  },
+  {
+    id: 'jiwuzei', name: '姬烏賊', latin: 'Sepia japonica',
+    local: '小墨仔', habitat: '沙泥淺海', time: '白天', season: '秋～冬季',
+    diet: '小魚、小蝦',
+    feature: '體型小巧的烏賊，殼薄易碎，常在沙底藏身。',
+    cuisine: '炸小烏賊、烏賊醋溜，小巧美味。',
+    conserve: '抱卵個體請放生。',
+    fact: '姬烏賊的墨囊小小一顆，但噴出來一樣能瞬間遮蔽視線。',
+    weight: 1.8, value: 75, speed: 3.2, flee: 0.5, size: 24,
+    starSeason: 4, starTime: 3, starShore: 4, starWeight: 2,
+    habitatW: { harbor: 0.15, coastal: 0.45, sandy: 0.8, seagrass: 0.4, night: 0.3, reef: 0.1, intertidal: 0.25 },
+    seasonW: { spring: 1.0, summer: 0.6, autumn: 1.6, winter: 1.8 },
+    timeW: { day: 1.5, night: 0.5, dusk: 1.0, dawn: 1.2 },
+    depth: [0.40, 0.85], behavior: 'bottom', palette: ['#d4bda0', '#95826a', '#b8a488'],
+    escape: 'ink', escapeHint: '姬烏賊噴墨後朝深海方向逃離。'
+  },
+  {
+    id: 'rocket', name: '火箭魷', latin: 'Sthenoteuthis oualaniensis',
+    local: '火箭小管、菱鰭魷', habitat: '外洋、深水', time: '夜晚', season: '夏季',
+    diet: '小魚、浮游動物',
+    feature: '全身流線、鰭呈菱形，是推進速度最快的魷類之一。',
+    cuisine: '火箭小管湯、鹽烤，肉質彈牙。',
+    conserve: '幼體請放生，保護大洋族群。',
+    fact: '火箭魷能跳出水面滑行，躲避掠食者。',
+    weight: 1.6, value: 90, speed: 6.5, flee: 0.85, size: 22,
+    starSeason: 4, starTime: 4, starShore: 2, starWeight: 1,
+    habitatW: { harbor: 0.05, coastal: 0.3, sandy: 0.2, reef: 0.15, seagrass: 0.25, night: 0.9, intertidal: 0.0 },
+    seasonW: { spring: 1.0, summer: 2.1, autumn: 1.4, winter: 0.3 },
+    timeW: { day: 0.4, night: 2.4, dusk: 1.5, dawn: 0.6 },
+    depth: [0.25, 0.60], behavior: 'dart', palette: ['#cfe6f0', '#8fb2c4', '#5f8aa0'],
+    escape: 'dash', escapeHint: '火箭魷瞬間衝刺，難以追上。'
+  },
+  {
+    id: 'giantoct', name: '巨型章魚', latin: 'Enteroctopus dofleini',
+    local: '太平洋巨章、相撲章魚', habitat: '深岩礁、洞穴', time: '夜晚', season: '全年',
+    diet: '螃蟹、龍蝦、大型貝類',
+    feature: '可長到數十公斤，是體型最大的章魚，腕展超過 4 公尺。',
+    cuisine: '章魚腳切片、炭烤章魚，澎湖冬季名菜。',
+    conserve: '體重未滿 3 公斤請放生，保護親代種群。',
+    fact: '巨型章魚智商極高，能開瓶拆罐、學會走出迷宮。',
+    weight: 15.0, value: 260, speed: 1.5, flee: 0.3, size: 52,
+    starSeason: 3, starTime: 5, starShore: 3, starWeight: 5,
+    habitatW: { harbor: 0.05, coastal: 0.15, sandy: 0.1, reef: 0.8, seagrass: 0.1, night: 0.9, intertidal: 0.1 },
+    seasonW: { spring: 1.2, summer: 0.9, autumn: 1.3, winter: 1.4 },
+    timeW: { day: 0.4, night: 2.4, dusk: 1.1, dawn: 0.8 },
+    depth: [0.70, 0.99], behavior: 'hide', palette: ['#a8553a', '#6e3a28', '#c88060'],
+    escape: 'shrink', escapeHint: '巨型章魚力大無窮，一旦鑽進岩洞就很難拉回。'
+  },
+  {
+    id: 'mimic', name: '擬態章魚', latin: 'Thaumoctopus mimicus',
+    local: '模仿章魚', habitat: '珊瑚礁、泥沙交錯區', time: '白天', season: '全年',
+    diet: '小魚、小蝦、螃蟹',
+    feature: '能模仿海蛇、比目魚、獅子魚等多種生物的形態與行為。',
+    cuisine: '性情特殊，主要為研究與觀賞用途。',
+    conserve: '數量稀少，請以觀察代替捕撈。',
+    fact: '擬態章魚是目前已知唯一會模仿其他物種的章魚。',
+    weight: 1.6, value: 110, speed: 2.5, flee: 0.5, size: 28,
+    starSeason: 3, starTime: 4, starShore: 5, starWeight: 2,
+    habitatW: { harbor: 0.05, coastal: 0.3, sandy: 0.55, reef: 0.7, seagrass: 0.4, night: 0.4, intertidal: 0.3 },
+    seasonW: { spring: 1.2, summer: 1.3, autumn: 1.2, winter: 1.0 },
+    timeW: { day: 1.6, night: 0.4, dusk: 1.2, dawn: 1.2 },
+    depth: [0.45, 0.85], behavior: 'hover', palette: ['#e0c5a8', '#a88a6e', '#7a5f4a'],
+    escape: 'dart', escapeHint: '擬態章魚會假裝成別的生物，趁機溜走。'
+  },
+  {
+    id: 'blueoct', name: '藍環章魚', latin: 'Hapalochlaena maculosa',
+    local: '太平洋藍環章魚', habitat: '潮池、淺礁', time: '夜晚', season: '全年',
+    diet: '螃蟹、小蝦、貝類',
+    feature: '體型嬌小卻身懷劇毒，受驚時體表會亮起鮮豔的藍色圓環。',
+    cuisine: '毒性極強，不可食用。',
+    conserve: '切勿徒手碰觸，避免被咬傷。',
+    fact: '藍環章魚的毒液足以麻痺神經，是目前對人最危險的章魚之一。',
+    weight: 0.3, value: 200, speed: 1.8, flee: 0.4, size: 14,
+    starSeason: 3, starTime: 5, starShore: 5, starWeight: 1,
+    habitatW: { harbor: 0.05, coastal: 0.2, sandy: 0.1, reef: 0.75, seagrass: 0.15, night: 0.8, intertidal: 0.9 },
+    seasonW: { spring: 1.2, summer: 1.2, autumn: 1.2, winter: 1.2 },
+    timeW: { day: 0.5, night: 2.3, dusk: 1.2, dawn: 1.0 },
+    depth: [0.55, 0.9], behavior: 'hide', palette: ['#c9a05a', '#8a6a2a', '#e0c06a'],
+    escape: 'shrink', escapeHint: '藍環章魚受驚縮成一團，並亮起警告的藍環。'
+  },
+  {
+    id: 'giantsq', name: '大王魷', latin: 'Architeuthis dux',
+    local: '巨魷、深海大王', habitat: '極深洋底', time: '夜晚', season: '冬季',
+    diet: '深海魚、其他魷類',
+    feature: '世界上最長的軟體動物之一，成體可達十幾公尺，兩根長腕拖曳如鞭。',
+    cuisine: '深海霸主，以科學研究為主。',
+    conserve: '極少現身，捕獲請通報研究單位。',
+    fact: '大王魷的眼睛比籃球還大，是動物界最大的眼睛。',
+    weight: 50.0, value: 500, speed: 8.0, flee: 0.9, size: 60,
+    starSeason: 2, starTime: 5, starShore: 1, starWeight: 5,
+    habitatW: { harbor: 0.0, coastal: 0.05, sandy: 0.05, reef: 0.2, seagrass: 0.05, night: 0.6, intertidal: 0.0 },
+    seasonW: { spring: 1.0, summer: 0.5, autumn: 1.3, winter: 1.8 },
+    timeW: { day: 0.3, night: 2.4, dusk: 0.8, dawn: 0.4 },
+    depth: [0.85, 1.0], behavior: 'dart', palette: ['#8a0d1f', '#5c0a14', '#c23040'],
+    escape: 'ink', escapeHint: '大王魷噴出大量墨汁後，朝深海長驅直入。'
+  },
+  {
+    id: 'vampire', name: '吸血鬼魷', latin: 'Vampyroteuthis infernalis',
+    local: '吸血鬼烏賊', habitat: '深海無光帶', time: '夜晚', season: '全年',
+    diet: '海洋雪（有機碎屑）',
+    feature: '不是真正的魷魚，腕間有薄膜如斗篷，是遠古的秘密物種。',
+    cuisine: '深海居民，不適合食用。',
+    conserve: '棲息深海，捕獲請放回原棲地。',
+    fact: '吸血鬼魷的眼睛在黑暗深海裡會發出幽藍微光，因而得名。',
+    weight: 0.5, value: 300, speed: 2.5, flee: 0.5, size: 20,
+    starSeason: 3, starTime: 5, starShore: 1, starWeight: 1,
+    habitatW: { harbor: 0.0, coastal: 0.02, sandy: 0.02, reef: 0.15, seagrass: 0.02, night: 0.45, intertidal: 0.0 },
+    seasonW: { spring: 1.1, summer: 0.8, autumn: 1.2, winter: 1.4 },
+    timeW: { day: 0.3, night: 2.5, dusk: 0.7, dawn: 0.4 },
+    depth: [0.9, 1.0], behavior: 'hover', palette: ['#5a3a6a', '#2a1a3a', '#7a5a8a'],
+    escape: 'dash', escapeHint: '吸血鬼魷翻起斗篷般的薄膜，消失在黑暗深海。'
   }
 ];
 
 /* ============================================================
+   [模組 3.5] 真實素材（Wikimedia Commons 合法授權影像）
+   整合範圍：圖鑑 / 資訊小卡 / 保育選擇。照片以 cover-fit 繪製、
+   未載入完成時自動回退到程式繪製，不影響既有遊玩機制。
+   完整授權明細（author/license/sourceUrl）見 assets/cephalopods/cephalopods.json
+   ============================================================ */
+const ASSET_MAP = {
+  suoguan: 'assets/cephalopods/uroteuthis-edulis.jpg',
+  xiaoquan: 'assets/cephalopods/uroteuthis-duvaucelii.jpg',
+  huazhi: 'assets/cephalopods/sepia-pharaonis.jpg',
+  ruansi: 'assets/cephalopods/sepioteuthis-lessoniana.gif',
+  zhangyu: 'assets/cephalopods/octopus-vulgaris.gif',
+  wusei: 'assets/cephalopods/sepia-esculenta.jpg'
+};
+const IMAGES = {};   // { speciesId: HTMLImageElement }
+window.__ASSET_MAP = ASSET_MAP;   /* 供自動化測試 / 除錯使用 */
+window.__IMAGES = IMAGES;
+function loadCephImages() {
+  if (typeof Image === 'undefined') return;   // Node 測試環境跳過
+  for (const id in ASSET_MAP) {
+    const img = new Image();
+    img.onload = () => { img._ok = true; };
+    img.onerror = () => { img._ok = false; };
+    img.src = ASSET_MAP[id];
+    IMAGES[id] = img;
+  }
+}
+window.loadCephImages = loadCephImages;   /* 供自動化測試 / 除錯使用 */
+/* ============================================================
    [模組 4] 資料庫：關卡（海域）設定
    ============================================================ */
 const LEVELS = [
-  { loc: 'harbor',    name: '澎湖港',       tod: 'day',   season: 'spring', weather: ['sunny'],          time: 75, mission: { sid: 'xiaoquan', n: 2 } },
-  { loc: 'coastal',   name: '近海',         tod: 'day',   season: 'summer', weather: ['sunny', 'cloudy'], time: 80, mission: { sid: 'xiaoquan', n: 3 } },
-  { loc: 'sandy',     name: '沙地淺海',     tod: 'day',   season: 'summer', weather: ['sunny', 'cloudy'], time: 85, mission: { sid: 'huazhi',   n: 2 } },
-  { loc: 'reef',      name: '珊瑚礁',       tod: 'dusk',  season: 'autumn', weather: ['sunny', 'rainy'],  time: 85, mission: { sid: 'ruansi',   n: 3 } },
-  { loc: 'seagrass',  name: '海草床',       tod: 'dusk',  season: 'spring', weather: ['sunny', 'rainy'],  time: 80, mission: { sid: 'suoguan',  n: 3 } },
-  { loc: 'night',     name: '夜間海域',     tod: 'night', season: 'summer', weather: ['clear'],          time: 90, mission: { sid: 'xiaoquan', n: 4 } },
-  { loc: 'intertidal',name: '潮間帶',       tod: 'dawn',  season: 'winter', weather: ['sunny', 'stormy'], time: 80, mission: { sid: 'zhangyu',  n: 2 } }
+  /*
+    15 個正式任務。保留引擎既有欄位（levelLoc/loc/name/tod/season/weather/time/mission），
+    新增需求欄位：levelId / levelName / timeOfDay / targetSpecies / timeLimit /
+    habitat / depth / temperature / environment / spawnProbability /
+    captureDifficulty / captureStrategy / researchReward / conservationReward。
+    extended = true → 教育延伸研究關（世界遠洋 / 深層內容，非澎湖鄰海原生限制地）。
+    final = true → 最終階段。
+  */
+  { levelId: 1, levelName: '澎湖港・新手演習', loc: 'harbor', name: '澎湖港', tod: 'day', timeOfDay: 'day', season: 'spring',
+    weather: ['sunny'], time: 75, mission: { sid: 'xiaoquan', n: 2 },
+    targetSpecies: 'xiaoquan', timeLimit: 75, habitat: '近岸淺海、海草床', depth: '近海', temperature: 27, environment: 'sunny',
+    spawnProbability: 0.9, captureDifficulty: 1, captureStrategy: '小卷遊速快，先等游近再快速放下捕撈器。',
+    researchReward: 5, conservationReward: 0 },
+  { levelId: 2, levelName: '近海・夜間漁火', loc: 'coastal', name: '近海', tod: 'night', timeOfDay: 'night', season: 'summer',
+    weather: ['clear'], time: 85, mission: { sid: 'suoguan', n: 2 },
+    targetSpecies: 'suoguan', timeLimit: 85, habitat: '近海（夜間群游）', depth: '近海', temperature: 26, environment: 'night',
+    spawnProbability: 1.0, captureDifficulty: 2, captureStrategy: '夜間照明誘集，小管大量出現。',
+    researchReward: 7, conservationReward: 1 },
+  { levelId: 3, levelName: '海草床・晨昏小管', loc: 'seagrass', name: '海草床', tod: 'dusk', timeOfDay: 'dusk', season: 'spring',
+    weather: ['sunny', 'rainy'], time: 80, mission: { sid: 'suoguan', n: 3 },
+    targetSpecies: 'suoguan', timeLimit: 80, habitat: '海草床（晨昏出遊）', depth: '近海', temperature: 24, environment: 'dusk',
+    spawnProbability: 1.1, captureDifficulty: 2, captureStrategy: '清晨黃昏為小管活躍時刻，動作與時機並重。',
+    researchReward: 8, conservationReward: 2 },
+  { levelId: 4, levelName: '初夏沙波・透抽', loc: 'sandy', name: '沙地淺海', tod: 'day', timeOfDay: 'day', season: 'summer',
+    weather: ['sunny', 'cloudy'], time: 85, mission: { sid: 'xiaoquan', n: 3 },
+    targetSpecies: 'xiaoquan', timeLimit: 85, habitat: '沙泥淺海', depth: '近海', temperature: 29, environment: 'sunny',
+    spawnProbability: 0.95, captureDifficulty: 1, captureStrategy: '透抽夏天最活躍，動作要快。',
+    researchReward: 4, conservationReward: 1 },
+  { levelId: 5, levelName: '秋・沙泥花枝', loc: 'sandy', name: '沙泥淺海', tod: 'day', timeOfDay: 'day', season: 'autumn',
+    weather: ['sunny', 'cloudy'], time: 95, mission: { sid: 'huazhi', n: 2 },
+    targetSpecies: 'huazhi', timeLimit: 95, habitat: '沙泥淺海', depth: '近海', temperature: 25, environment: 'sandy',
+    spawnProbability: 1.1, captureDifficulty: 3, captureStrategy: '花枝重量大且會噴墨，需先升捲線器與防墨。',
+    researchReward: 11, conservationReward: 3 },
+  { levelId: 6, levelName: '珊瑚礁・軟絲之舞', loc: 'reef', name: '珊瑚礁', tod: 'dusk', timeOfDay: 'dusk', season: 'autumn',
+    weather: ['sunny', 'rainy'], time: 95, mission: { sid: 'ruansi', n: 3 },
+    targetSpecies: 'ruansi', timeLimit: 95, habitat: '珊瑚礁、岩礁', depth: '近海', temperature: 26, environment: 'reef',
+    spawnProbability: 1.1, captureDifficulty: 3, captureStrategy: '軟絲敏捷常躲礁縫，時機要精準。',
+    researchReward: 8, conservationReward: 2 },
+  { levelId: 7, levelName: '礁間夜探・章魚', loc: 'reef', name: '礁岩區', tod: 'night', timeOfDay: 'night', season: 'autumn',
+    weather: ['clear'], time: 100, mission: { sid: 'zhangyu', n: 2 },
+    targetSpecies: 'zhangyu', timeLimit: 100, habitat: '岩礁（夜間出沒）', depth: '中層', temperature: 23, environment: 'nightreef',
+    spawnProbability: 1.2, captureDifficulty: 4, captureStrategy: '章魚夜間在礁石縫穿梭，需配合聲納。',
+    researchReward: 9, conservationReward: 3 },
+  { levelId: 8, levelName: '寒冬墨賊來襲', loc: 'sandy', name: '沙泥淺海', tod: 'day', timeOfDay: 'day', season: 'winter',
+    time: 90, weather: ['sunny', 'stormy'], mission: { sid: 'wusei', n: 3 },
+    targetSpecies: 'wusei', timeLimit: 90, habitat: '沙泥・海草床', depth: '中層', temperature: 16, environment: 'winter',
+    spawnProbability: 1.2, captureDifficulty: 4, captureStrategy: '烏賊冬天肥美且噴墨，需防墨對策。',
+    researchReward: 8, conservationReward: 2 },
+  { levelId: 9, levelName: '深海監測・斷層', loc: 'seagrass', name: '深水海草', tod: 'dusk', timeOfDay: 'dusk', season: 'autumn',
+    time: 100, weather: ['sunny'], mission: { sid: 'wusei', n: 4 },
+    targetSpecies: 'wusei', timeLimit: 100, habitat: '深水區', depth: '深海', temperature: 12, environment: 'deep',
+    spawnProbability: 1.15, captureDifficulty: 5, captureStrategy: '深海光線不足，依聲納導航。',
+    researchReward: 12, conservationReward: 2, extended: true },
+  { levelId: 10, levelName: '極限洄游・白魷', loc: 'coastal', name: '洄游帶', season: 'all', tod: 'dawn', timeOfDay: 'dawn',
+    time: 100, weather: ['clear'], mission: { sid: 'xiaoquan', n: 8 },
+    targetSpecies: 'xiaoquan', timeLimit: 120, habitat: '大洋洄游帶', depth: '中/深', temperature: 20, environment: 'migration',
+    spawnProbability: 1.2, captureDifficulty: 5, captureStrategy: '洄游速度快，需極敏捷的操作。',
+    researchReward: 12, conservationReward: 2, extended: true },
+  { levelId: 11, levelName: '終夜・全域整合', loc: 'night', name: '全海域', tod: 'night', timeOfDay: 'night', season: 'all',
+    time: 120, weather: ['stormy'], mission: { sid: 'huazhi', n: 3 },
+    targetSpecies: 'huazhi', timeLimit: 120, habitat: '全域', depth: '深層', temperature: 10, environment: 'apex',
+    spawnProbability: 1.2, captureDifficulty: 5, captureStrategy: '終極關卡：橫跨全棲地，決戰肥美花枝。',
+    researchReward: 12, conservationReward: 3, final: true },
+  { levelId: 12, levelName: '寒冬・手撈好時', loc: 'intertidal', name: '潮間帶', tod: 'dawn', timeOfDay: 'dawn', season: 'winter',
+    time: 80, weather: ['sunny', 'stormy'], mission: { sid: 'zhangyu', n: 2 },
+    targetSpecies: 'zhangyu', timeLimit: 80, habitat: '潮間帶礁岩', depth: '潮間帶', temperature: 16, environment: 'tidal',
+    spawnProbability: 1.0, captureDifficulty: 3, captureStrategy: '章魚躲岩縫，先誘其現身再快速收鉤。',
+    researchReward: 9, conservationReward: 4 },
+  { levelId: 13, levelName: '深礁・軟絲探照', loc: 'reef', name: '深礁', tod: 'night', timeOfDay: 'night', season: 'autumn',
+    time: 100, weather: ['clear'], mission: { sid: 'ruansi', n: 4 },
+    targetSpecies: 'ruansi', timeLimit: 100, habitat: '深礁與大礁岩', depth: '深海', temperature: 14, environment: 'nightreef',
+    spawnProbability: 1.2, captureDifficulty: 5, captureStrategy: '夜晚軟絲於深礁棲息，需搭配聲納跟夜燈。',
+    researchReward: 12, conservationReward: 3, extended: true },
+  { levelId: 14, levelName: '蒼月・極深海', loc: 'intertidal', name: '極深水', tod: 'night', timeOfDay: 'night', season: 'winter',
+    time: 110, weather: ['stormy'], mission: { sid: 'zhangyu', n: 4 },
+    targetSpecies: 'zhangyu', timeLimit: 110, habitat: '極深層（熔岩洞）', depth: '極深', temperature: 8, environment: 'abyss',
+    spawnProbability: 1.1, captureDifficulty: 6, captureStrategy: '極深水壓大，挑戰最大章魚。',
+    researchReward: 15, conservationReward: 4, extended: true },
+  { levelId: 15, levelName: '曙・最終試煉', loc: 'seagrass', name: '曙光海', tod: 'dawn', timeOfDay: 'dawn', season: 'spring',
+    time: 60, weather: ['clear'], mission: { sid: 'xiaoquan', n: 10 },
+    targetSpecies: 'xiaoquan', timeLimit: 60, habitat: '最終試煉場', depth: '中層', temperature: 21, environment: 'final',
+    spawnProbability: 1.4, captureDifficulty: 5, captureStrategy: '終極技巧考驗，限時一分鐘大豐收。',
+    researchReward: 0, conservationReward: 0, final: true }
 ];
+for (const L of LEVELS) {
+  /* 生成數量 = 需求數量 + 1（容錯一隻）。requiredCount 與 mission.n 為「通關需求」，
+     spawnCount 僅控制場上「目標物種」的生成上限。 */
+  L.requiredCount = (L.requiredCount !== undefined) ? L.requiredCount : L.mission.n;
+  L.spawnCount = L.requiredCount + 1;
+}
 const LOC_NAMES = {
   harbor: '澎湖港', coastal: '近海', sandy: '沙地', reef: '珊瑚礁',
   seagrass: '海草床', night: '夜間海域', intertidal: '潮間帶'
@@ -664,19 +976,26 @@ class UIFlow {
 
 /* ---------- Panel：暗幕 + 框架 + 標題，回傳內容流 ---------- */
 class UIPanel {
+  /* 徽章（標題）佔用的垂直空間：比 (y-18 到 y+16) 再留 margin，防內容重疊。 */
+  static BADGE_TOP = 18;
+  static BADGE_BOTTOM = 16;
   static open(x, y, w, h, title) {
     ctx.fillStyle = 'rgba(4,20,34,0.93)';
     roundRect(x, y, w, h, UI.panelRadius); ctx.fill();
     ctx.strokeStyle = '#3aa7c8'; ctx.lineWidth = 2; ctx.stroke();
+    let contentPad = UI.pad;
     if (title) {
       const tw = ctx.measureText(title).width + 34;
       ctx.fillStyle = '#1d6fa5';
-      roundRect(x + 20, y - 18, tw, 34, 17); ctx.fill();
+      roundRect(x + 20, y - 18, tw, 18 + UIPanel.BADGE_BOTTOM, 17); ctx.fill();
       ctx.font = 'bold 17px ' + FONT; ctx.textAlign = 'left'; ctx.fillStyle = '#fff';
       ctx.fillText(title, x + 37, y + 5);
       ctx.textAlign = 'left';
+      /* 內容從徽章底緣（y + BADGE_BOTTOM）下方開始，保證標題與統計不重疊 */
+      contentPad = UIPanel.BADGE_BOTTOM + UI.gap;
     }
-    return new UIFlow(x, y, w, { pad: UI.pad });
+    const fl = new UIFlow(x, y, w, { pad: contentPad });
+    return fl;
   }
 }
 
@@ -763,6 +1082,70 @@ class UICard {
     const t = new UIText(text, Object.assign({ size: 12, color: '#d8ecf8', lh: this.lh }, o, { maxW: this.descW }));
     t.draw(this.tx, y, this.descW);
     return t.height;
+  }
+}
+
+/* ---------- Header 統一排版：標題 + StatsRow ----------
+   以 padding / margin / gap / fontMetrics 計算位置，
+   禁止各處自行決定 y 座標；文字統一使用 textBaseline='top'。
+   以後新增項目（時間/關卡/任務…）只要把項目加到 items，
+   就會自動排列、不重疊、不隨數字變長而碰撞。 */
+class Header {
+  constructor(x, y, w, o) {
+    o = o || {};
+    this.x = x; this.y = y; this.w = w;
+    this.padTop = o.padTop != null ? o.padTop : 20;
+    this.padL = o.padLeft != null ? o.padLeft : 24;
+    this.padR = o.padRight != null ? o.padRight : 24;
+    this.margin = o.margin != null ? o.margin : 16;      // 標題與 Stats 間距（margin-top 14~20）
+    this.gap = o.gap != null ? o.gap : 24;               // Stats 內容間距
+    this.titleSize = o.titleSize || 22;
+    this.statSize = o.statSize || 18;
+    this.titleColor = o.titleColor || '#eaf9ff';
+    this.statColor = o.statColor || '#ffffff';
+    this.accentColor = o.accentColor || '#7ef0ff';
+    this.weakColor = o.weakColor || '#9fb8c8';
+    this.iconGap = o.iconGap != null ? o.iconGap : 8;    // 統計圖示與文字間距
+    this._y = this.y + this.padTop;                      // 目前繪製頂端（top-baseline）
+    this._x = this.x + this.padL;
+    this._w = Math.max(1, this.w - this.padL - this.padR);
+    this._limitW = o.maxColW || Math.max(1, this.w - this.padL * 2);
+  }
+  /* 標題行（top-baseline）；回傳本身以利鏈接 */
+  title(text, o) {
+    o = o || {};
+    ctx.font = 'bold ' + (o.size || this.titleSize) + 'px ' + FONT;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = o.color || this.titleColor;
+    ctx.fillText(text, this._x, this._y);
+    this._y += this.titleSize;
+    this._y += this.margin;
+    return this;
+  }
+  /* 統計列：以量測寬度逐項前推 x；『研究點：10,000』再長也不會撞到下一項 */
+  row(items, o) {
+    o = o || {};
+    let x = this._x;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    for (const it of items) {
+      const size = it.size || it.sz || o.size || this.statSize;
+      ctx.font = (it.bold ? 'bold ' : '') + size + 'px ' + FONT;
+      ctx.fillStyle = it.color || it.c || this.statColor;
+      ctx.fillText(String(it.text), x, this._y);
+      x += ctx.measureText(String(it.text)).width + (it.gap != null ? it.gap : this.gap);
+    }
+    this._y += this.statSize;
+    return this;
+  }
+  /* 給定 Header 參數，回傳其總高度（供背景先畫） */
+  static heightFor(o) {
+    o = o || {};
+    const padTop = o.padTop != null ? o.padTop : 20;
+    const titleSize = o.titleSize || 22;
+    const margin = o.margin != null ? o.margin : 16;
+    const statSize = o.statSize || 18;
+    const padBottom = o.padBottom != null ? o.padBottom : 14;
+    return padTop + titleSize + margin + statSize + padBottom;
   }
 }
 
@@ -1446,6 +1829,16 @@ class Ceph {
       case 'huazhi': this.drawCuttle(s, swimK, true); break;
       case 'wusei': this.drawCuttle(s, swimK, false); break;
       case 'zhangyu': this.drawOcto(s, swimK); break;
+      /* 擴充物種：魷類 / 烏賊類 / 章魚類，直接重用現有繪製函式 */
+      case 'rocket': this.drawSquid(s, swimK, true); break;      /* 火箭魷：偏白魷體色 */
+      case 'nini': case 'changwan': this.drawSquid(s, swimK, false); break;
+      case 'giantsq': this.drawSquid(s, swimK, false); break;    /* 大王魷：深色大型魷 */
+      case 'jiwuzei':
+        this.drawCuttle(s, swimK, false);
+        break;
+      case 'duanxiao': case 'giantoct': case 'mimic': case 'blueoct': case 'vampire':
+        this.drawOcto(s, swimK);
+        break;
     }
     /* 特殊標記 */
     if (this.isJuvenile) {
@@ -1669,6 +2062,26 @@ class Game {
     /* 暫存：捕獲等待選擇 */
     this.pendingCatch = null;
     this.cardData = null;
+    this.encyPage = 0;   /* 圖鑑分頁（物種擴充後用） */
+
+    /* 測試模式（GameState.TEST_MODE / 進行中的 PLAYING + testing 旗標）
+       進入時快照正式資料；離開未儲存則完全還原，不污染正式進度。 */
+    this.test = {
+      active: false,        // 目前身處測試階段
+      snapshot: null,       // 進入測試時的正規資料備份
+      cfg: {                // 測試模式設定（自由選擇）
+        levelIndex: 0,
+        speciesIdx: 0,
+        timeOfDay: 'day',
+        season: 'spring',
+        depth: 'near',
+        probability: 1.0,
+        infiniteTime: true,
+        infinitePoints: true,
+        infiniteConserve: true
+      },
+      debug: false          // Debug Panel 開關
+    };
 
     this.sfxOn = true;
     this.fsPref = loadFsPref();   // 全螢幕偏好（localStorage 記憶）
@@ -1694,6 +2107,7 @@ class Game {
     this.catchCount = 0;
     this.missionDone = false;
     this.spawnTimer = 0;
+    this.targetSpawned = 0;    // 目標物種已生成數量（每關從 0 起算）
     this.toasts = [];
     this.floats = [];
     this.state = 'brief';
@@ -1711,15 +2125,30 @@ class Game {
     Sfx.seagull();
   }
 
-  /* 產生一隻生物（依棲地/季節/時間權重） */
+  /* 產生一隻生物（依棲地/季節/時間權重；測試模式可覆寫出現機率） */
   spawnCeph() {
     const L = this.level;
+    /* 目標物種配額：僅正式遊玩（brief/play）計數並設上限，選單背景不消耗配額 */
+    const inSession = this.state === GameState.MISSION || this.state === GameState.PLAYING;
+    const targetSid = (L && L.mission) ? L.mission.sid : null;
+    const targetCap = (L && L.spawnCount) ? L.spawnCount : 0;
     const wts = [];
+    /* 測試模式：強制指定物種 + 指定出現機率 */
+    const testMode = this.test && this.test.active;
+    const forced = testMode ? SPECIES[this.test.cfg.speciesIdx] : null;
     for (const sp of SPECIES) {
       let w = (sp.habitatW[L.loc] || 0.05) * (sp.seasonW[L.season] || 1) * (sp.timeW[L.tod] || 1);
-      if (sp.id === L.mission.sid) w *= 2.2 * (1 + this.upgrade('bait') * 0.7); // 任務目標 + 誘餌加成
-      if (sp.id === L.mission.sid && this.missionDone) w *= 0.6;               // 任務完成後遞減
-      if (L.tod === 'night' && this.upgrade('light') > 0) w *= 1 + this.upgrade('light') * 0.35;
+      if (testMode) {
+        if (forced && sp.id === forced.id) w = 1.0 * this.test.cfg.probability;   // 指定物種
+        else w = 0.02;                                                             // 其餘幾乎不出現
+      } else {
+        if (sp.id === targetSid) {
+          if (inSession && targetCap > 0 && this.targetSpawned >= targetCap) w = 0; // 已達上限，不再生成
+          else w *= 2.2 * (1 + this.upgrade('bait') * 0.7);                           // 任務目標 + 誘餌加成
+        }
+        if (sp.id === targetSid && this.missionDone) w *= 0.6;               // 任務完成後遞減
+        if (L.tod === 'night' && this.upgrade('light') > 0) w *= 1 + this.upgrade('light') * 0.35;
+      }
       if (w > 0.001) wts.push({ sp, w });
     }
     if (!wts.length) return;
@@ -1727,11 +2156,18 @@ class Game {
     let r = Math.random() * total, chosen = wts[0].sp;
     for (const it of wts) { r -= it.w; if (r <= 0) { chosen = it.sp; break; } }
     const opts = {};
-    if (Math.random() < 0.2 && chosen.weight > 1) { opts.isJuvenile = true; opts.sizeMul = 0.6; opts.weightMul = 0.5; opts.valueMul = 0.4; }
-    if (Math.random() < 0.06) { opts.isRare = true; opts.valueMul = 2.2; }
+    if (!testMode && Math.random() < 0.2 && chosen.weight > 1) { opts.isJuvenile = true; opts.sizeMul = 0.6; opts.weightMul = 0.5; opts.valueMul = 0.4; }
+    if (!testMode && Math.random() < 0.06) { opts.isRare = true; opts.valueMul = 2.2; }
+    this.postSpawn(chosen, inSession, targetSid);
     const c = new Ceph(chosen, this, opts);
     this.creatures.push(c);
     return c;
+  }
+  /* 生成後：正式遊玩中每次「目標物種」誕生都計數一次（捕獲前逃逸仍視為已生成，不重複補） */
+  postSpawn(chosen, inSession, targetSid) {
+    if (!this.test || !this.test.active) {
+      if (inSession && targetSid && chosen.id === targetSid) this.targetSpawned += 1;
+    }
   }
 
   removeCeph(c) {
@@ -1763,17 +2199,24 @@ class Game {
     return 1 + this.upgrade('gear') * 0.1;
   }
 
-  /* Popup / Modal 狀態：開啟時背景場景完全停止 */
+  /* Popup / Modal 狀態：開啟時背景場景完全停止（GameState.PAUSED / 資訊卡等） */
   isModal() {
     return this.state === 'card' || this.state === 'choice' || this.state === 'shop' ||
       this.state === 'settings' || this.state === 'help' || this.state === 'encyclopedia' ||
-      this.state === 'end';
+      this.state === 'end' || this.state === 'paused' || this.state === 'test';
   }
 
   /* ---------- 主更新迴圈 ---------- */
   update(dt) {
     this.time += dt;
     this.frame++;
+    /* 暫停（GameState.PAUSED）：停止所有進度相關更新，僅保留 UI 渲染。
+       粒子 / 泡泡 / 生物 / 鉤子 / SpawnTimer / Countdown / 動畫全部凍結。 */
+    if (this.state === GameState.PAUSED) {
+      this.fsFade -= dt;
+      if (this.fsFade < 0) this.fsFade = 0;
+      return;
+    }
     Particles.update(dt);
     if (!this.isModal()) Bubbles.update(dt);
     if (!this.isModal()) this.bgTime = this.time;
@@ -1820,10 +2263,12 @@ class Game {
   /* ---------- 遊玩狀態更新 ---------- */
   updatePlay(dt) {
     const h = this.hook;
-    this.timeLeft -= dt;
+    /* 測試模式：無限時間（不遞減計時，也不觸發結束） */
+    const infTime = this.test && this.test.active && this.test.cfg.infiniteTime;
+    if (!infTime) this.timeLeft -= dt;
 
     /* 計時結束 */
-    if (this.timeLeft <= 0) {
+    if (!infTime && this.timeLeft <= 0) {
       this.timeLeft = 0;
       this.finishLevel();
       return;
@@ -2088,10 +2533,14 @@ class Game {
   }
 
   addPoints(n) {
+    /* 測試模式：無限研究點（不實際增減，僅顯示效果） */
+    if (this.test && this.test.active && this.test.cfg.infinitePoints) { this.toast('+∞ 研究點（測試）', 1.2); return; }
     this.points += n;
     saveState(this);
   }
   addConserve(n) {
+    /* 測試模式：無限保育點 */
+    if (this.test && this.test.active && this.test.cfg.infiniteConserve) { this.toast('+∞ 保育點（測試）', 1.2); return; }
     this.conserve += n;
     saveState(this);
   }
@@ -2271,6 +2720,13 @@ class Game {
       case 'shop': this.drawShop(); break;
       case 'encyclopedia': this.drawEncyclopedia(); break;
       case 'end': this.drawEnd(); break;
+      case 'paused': this.drawPauseMenu(); break;
+      case 'test': this.drawTestMode(); break;
+    }
+    /* 測試模式：遊玩中顯示測試工具列 + Debug Panel */
+    if (this.state === 'play' && this.test.active) {
+      this.drawTestTools();
+      if (this.test.debug) this.drawDebugPanel();
     }
 
     /* 全螢幕切換淡入動畫 */
@@ -2397,35 +2853,48 @@ class Game {
   }
 
   /* ---------- HUD ---------- */
-  drawHUD() {
-    ctx.fillStyle = 'rgba(6,22,38,0.75)';
-    ctx.fillRect(0, 0, CFG.W, 58);
+drawHUD() {
+    /* Header 統一排版：標題 + StatsRow（padding/margin/gap 全部在此計算）
+       先量高畫深色底，再畫文字，避免文字被背景覆蓋。 */
+    const hcfg = {
+      padTop: 14, padLeft: 16, padRight: 28,
+      titleSize: 20, statSize: 17, margin: 10, gap: 26
+    };
+    const barH = Header.heightFor(hcfg) + 10;
+    ctx.fillStyle = 'rgba(6,22,38,0.78)';
+    ctx.fillRect(0, 0, CFG.W, barH);
     ctx.strokeStyle = 'rgba(126,240,255,0.4)'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(0, 58); ctx.lineTo(CFG.W, 58); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, barH); ctx.lineTo(CFG.W, barH); ctx.stroke();
 
+    const hd = new Header(0, 0, CFG.W, hcfg);
+    hd.title('澎湖頭足研究中心');
     const L = this.level;
     const ms = SPECIES.find(s => s.id === L.mission.sid);
     const missionCount = Math.min(this.levelCatch[L.mission.sid] || 0, L.mission.n);
     const encyCount = Object.keys(this.encyclopedia).length;
-
-    /* 左側資訊（共用 row() 自動排版，間距由 UI.gap 統一） */
-    const fl = new UIFlow(0, 10, CFG.W - 340, { pad: 14, gap: 4 });
-    fl.cursor = 38;
-    fl.row([
-      { text: '研究點', size: 24, bold: true, color: '#7ef0ff', gap: 6 },
-      { text: this.points.toLocaleString(), size: 22, bold: true, color: '#ffffff', gap: 28 },
-      { text: '目標', size: 24, bold: true, color: '#ffe08a', gap: 6 },
-      { text: ms.name + ' ×' + missionCount + '/' + L.mission.n, size: 20, bold: true, color: '#ffffff', gap: 28 },
-      { text: '⏱ ' + fmtTime(this.timeLeft), size: 22, bold: true, color: '#ff9d6e', gap: 28 },
-      { text: '📍 ' + L.name, size: 22, bold: true, color: '#b5f2c0' }
+    hd.row([
+      { text: '研究點', bold: true, size: 17, color: '#7ef0ff', gap: 0 },
+      { text: this.testPointsText(), bold: true, size: 20, color: '#ffffff', gap: 34 },
+      { text: '保育點', bold: true, size: 17, color: '#b5f2c0', gap: 0 },
+      { text: this.conserve.toLocaleString(), bold: true, size: 20, color: '#ffffff', gap: 34 },
+      { text: '目標：' + ms.name + ' ×' + missionCount + '/' + L.mission.n, bold: true, size: 15, color: '#ffe08a', gap: 30 },
+      { text: '⏱ ' + fmtTime(this.timeLeft), bold: true, size: 16, color: '#ff9d6e', gap: 30 },
+      { text: '📍 ' + L.name, bold: true, size: 16, color: '#b5f2c0', gap: 30 },
+      { text: '☀ ' + WEATHER_NAMES[this.weather] + ' ' + TIDE_NAMES[this.tide], size: 14, color: '#d8e8f5', gap: 30 },
+      { text: '圖鑑 ' + encyCount + '/' + SPECIES.length, size: 14, color: '#e6c7ff' }
     ]);
 
-    /* 右側資訊（右對齊） */
-    const fr = new UIFlow(CFG.W - 196, 10, 190, { pad: 0, gap: 0 });
-    fr.cursor = 30;
-    fr.row([{ text: '☀ ' + WEATHER_NAMES[this.weather] + '  ' + TIDE_NAMES[this.tide], size: 16, color: '#d8e8f5', align: 'right', w: 190 }]);
-    fr.cursor = 54;
-    fr.row([{ text: '圖鑑 ' + encyCount + '/' + SPECIES.length, size: 16, color: '#e6c7ff', align: 'right', w: 190 }]);
+    /* 測試模式：右上角徽章（Header 系統），正式模式不顯示 */
+    if (this.test && this.test.active) {
+      const badgeH = barH;
+      const bw2 = 120, bx2 = CFG.W - bw2 - 10, by2 = Math.round((badgeH - 22) / 2);
+      ctx.save();
+      roundRect(bx2, by2, bw2, 22, 11); ctx.fillStyle = '#6a4fa0'; ctx.fill();
+      ctx.strokeStyle = '#9b6fd6'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = 'bold 13px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('🧪 測試模式', bx2 + bw2 / 2, by2 + 11);
+      ctx.restore();
+    }
 
     /* 底部提示 */
     if (this.hook.state === 'idle') {
@@ -2437,8 +2906,9 @@ class Game {
   /* 右下角控制按鈕（圖鑑/商店） */
   drawControls() {
     this.buttons = [];
-    this.addBtn('圖鑑', 790, 68, 78, 34, () => this.openEncyclopedia(), '#6a4fa0');
-    this.addBtn('商店', 872, 68, 74, 34, () => this.openShop(), '#1d6fa5');
+    this.addBtn('圖鑑', 700, 68, 78, 34, () => this.openEncyclopedia(), '#6a4fa0');
+    this.addBtn('商店', 782, 68, 74, 34, () => this.openShop(), '#1d6fa5');
+    this.addBtn('☰ 選單', 864, 68, 82, 34, () => this.openPauseMenu(), '#3a5a8a');
     this.drawButtons();
   }
 
@@ -2460,6 +2930,7 @@ class Game {
   /* ---------- 圖鑑 ---------- */
   openEncyclopedia() {
     this.prevState = (this.state === 'play') ? 'play' : 'menu';
+    this.encyPage = 0;   /* 物種擴充後分頁：每次開啟回到第一頁 */
     this.state = 'encyclopedia';
     this.buttons = [];
     Sfx.click();
@@ -2468,11 +2939,14 @@ class Game {
     /* 半透明覆蓋讓文字清晰 */
     ctx.fillStyle = 'rgba(4,20,34,0.5)'; ctx.fillRect(0, 0, CFG.W, CFG.H);
     const fl = this.panelFrame(30, 40, CFG.W - 60, 540, '澎湖頭足圖鑑');
-    const n = Object.keys(this.encyclopedia).length;
+    /* 測試模式：全部物種視為已解鎖；正式模式依實際捕獲進度 */
+    const testActive = this.test && this.test.active;
+    const collected = testActive ? SPECIES.length : Object.keys(this.encyclopedia).length;
+    const n = collected;
 
     /* Header Layout：標題（panelFrame 徽章）→ Subtitle → Progress，Padding/Gap 統一 */
     fl.gap(UI.gap);                    /* 標題徽章底緣與副標題間距 */
-    fl.text('已收集：' + n + ' / ' + SPECIES.length + ' 種', { size: 16, bold: true, color: '#e6c7ff', maxW: fl.w, lh: lineH(16) });
+    fl.text((testActive ? '🧪 測試模式　' : '') + '已收集：' + n + ' / ' + SPECIES.length + ' 種', { size: 16, bold: true, color: '#e6c7ff', maxW: fl.w, lh: lineH(16) });
     fl.gap(UI.gap);
 
     /* Progress（以內容流座標自動排列，與 Header 固定間距） */
@@ -2482,14 +2956,20 @@ class Game {
     ctx.fillStyle = '#9b6fd6'; roundRect(fl.x, barY, barW * n / SPECIES.length, barH, 9); ctx.fill();
     fl.gap(barH + UI.gap * 2);
 
-    /* Grid：所有 Card 共用同一 Layout（Image → Title → Latin → Habitat → Time → Footer） */
+    /* Grid：分頁（3 欄 × 2 列 = 6 張／頁），物種擴充後自動分頁，不超出 Panel */
     const gap = UI.gap + 4;
     const gw = Math.floor((fl.w - gap * 2) / 3), gh = 190;
+    const PER_PAGE = 6;
+    const totalPages = Math.max(1, Math.ceil(SPECIES.length / PER_PAGE));
+    if (this.encyPage > totalPages - 1) this.encyPage = totalPages - 1;
+    if (this.encyPage < 0) this.encyPage = 0;
+    const pageSpecies = SPECIES.slice(this.encyPage * PER_PAGE, this.encyPage * PER_PAGE + PER_PAGE);
     const gy0 = fl.cursor;
-    SPECIES.forEach((sp, i) => {
+    pageSpecies.forEach((sp, i) => {
       const col = i % 3, row = Math.floor(i / 3);
       const x = fl.x + col * (gw + gap), y = gy0 + row * (gh + gap);
-      const unlocked = !!this.encyclopedia[sp.id];
+      /* 測試模式解鎖全部；正式模式只解鎖真正捕獲過的物種 */
+      const unlocked = testActive || !!this.encyclopedia[sp.id];
       const card = new UICard({
         bg: unlocked ? 'rgba(10,45,70,0.95)' : 'rgba(10,25,40,0.9)',
         border: unlocked ? '#3aa7c8' : '#2a4a5a',
@@ -2501,8 +2981,11 @@ class Game {
       ctx.save();
       ctx.translate(x + gw / 2, y + 46);
       if (unlocked) {
-        const c = new Ceph(sp, this, { preview: true });
-        c.draw(this.time * 0.001);
+        /* 真實素材優先；尚未載入時回退程序繪製（不影響功能） */
+        if (!this.drawPhoto(sp.id, 0, 0, gw - 24, 92)) {
+          const c = new Ceph(sp, this, { preview: true });
+          c.draw(this.time * 0.001);
+        }
       } else {
         ctx.font = 'bold 36px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillStyle = 'rgba(255,255,255,0.35)';
@@ -2519,7 +3002,7 @@ class Game {
         cf.text(sp.latin, { size: 13, color: '#a8d8ea', align: 'center', maxW: gw - 24, lh: 18 });
         cf.text('棲地：' + sp.habitat, { size: 13, color: '#cfe9ff', maxW: gw - 24, lh: 16 });
         cf.text('時間：' + sp.time + '　季節：' + sp.season, { size: 13, color: '#cfe9ff', maxW: gw - 24, lh: 16 });
-        cf.text('已捕獲：' + (this.encyclopedia[sp.id] || 0) + ' 隻', { size: 13, color: '#ffe08a', maxW: gw - 24, lh: 16 });
+        cf.text('已捕獲：' + (testActive ? '∞' : (this.encyclopedia[sp.id] || 0)) + ' 隻', { size: 13, color: '#ffe08a', maxW: gw - 24, lh: 16 });
       } else {
         cf.text('尚未發現', { size: 17, bold: true, color: 'rgba(255,255,255,0.55)', align: 'center', maxW: gw - 24, lh: 24 });
         cf.text('捕獲後解鎖生態資料', { size: 13, color: 'rgba(255,255,255,0.4)', align: 'center', maxW: gw - 24, lh: 16 });
@@ -2527,8 +3010,23 @@ class Game {
       card.close();
     });
     this.buttons = [];
+    /* 底部工具列：返回｜分頁（◀ 第 x/y 頁 ▶），全部同一列，不與 Grid 重疊 */
+    if (totalPages > 1) {
+      this.addBtn('◀', CFG.W - 356, CFG.H - 60, 60, 36, () => { this.encyPage = Math.max(0, this.encyPage - 1); Sfx.click(); });
+      this.addBtn('第 ' + (this.encyPage + 1) + ' / ' + totalPages + ' 頁', CFG.W - 288, CFG.H - 60, 96, 36, () => {}, '#3a5a8a');
+      this.addBtn('▶', CFG.W - 184, CFG.H - 60, 60, 36, () => { this.encyPage = Math.min(totalPages - 1, this.encyPage + 1); Sfx.click(); });
+    }
     this.addBtn('返回', CFG.W - 130, CFG.H - 60, 100, 40, () => { this.state = this.prevState || 'menu'; Sfx.click(); });
     this.drawButtons();
+  }
+
+  /* 測試模式有效研究點：最大安全值（僅測試期間生效，不污染正式存檔） */
+  testPoints() {
+    return (this.test && this.test.active) ? Number.MAX_SAFE_INTEGER : this.points;
+  }
+  /* 測試模式有效研究點顯示文字 */
+  testPointsText() {
+    return this.test && this.test.active ? '∞' : this.points.toLocaleString();
   }
 
   /* ---------- 商店 ---------- */
@@ -2542,7 +3040,7 @@ class Game {
     ctx.fillStyle = 'rgba(4,20,34,0.5)'; ctx.fillRect(0, 0, CFG.W, CFG.H);
     const fl = this.panelFrame(30, 30, CFG.W - 60, 560, '澎湖海洋研究中心');
     fl.row([
-      { text: '研究點：' + this.points.toLocaleString(), size: 16, bold: true, color: '#7ef0ff', gap: UI.gap * 2 },
+      { text: '研究點：' + this.testPointsText(), size: 16, bold: true, color: '#7ef0ff', gap: UI.gap * 2 },
       { text: '保育點：' + this.conserve, size: 16, bold: true, color: '#b5f2c0' }
     ]);
 
@@ -2555,7 +3053,8 @@ class Game {
       const x = cx + col * (cw + cgap), y = cy + row * (ch + cgap);
       const lvl = this.upgrade(item.id);
       const price = this.shopPrice(item);
-      const canBuy = this.points >= price && lvl < item.max;
+      const testActive = this.test && this.test.active;
+      const canBuy = (testActive || this.points >= price) && lvl < item.max;
       const label = lvl >= item.max ? '✓ 已購買' : (canBuy ? (lvl > 0 ? '升級' : '購買') : '研究點不足');
       const state = lvl >= item.max ? 'purchased' : (canBuy ? (lvl > 0 ? 'upgrade' : 'normal') : 'disabled');
       const color = canBuy ? '#2a8f4a' : (lvl >= item.max ? '#556a5a' : '#7a5a2a');
@@ -2600,9 +3099,11 @@ class Game {
     if (!item) return;
     const lvl = this.upgrade(id);
     const price = this.shopPrice(item);
+    /* 測試模式：一律允許購買且不扣點（不採計 infinitePoints 勾選框） */
+    const testFree = this.test && this.test.active;
     if (lvl >= item.max) { this.toast(item.name + ' 已達最高等級'); Sfx.deny(); return; }
-    if (this.points < price) { this.toast('研究點不足，請先完成研究任務'); Sfx.deny(); return; }
-    this.points -= price;
+    if (!testFree && this.points < price) { this.toast('研究點不足，請先完成研究任務'); Sfx.deny(); return; }
+    if (!testFree) this.points -= price;
     this.upgrades[id] = lvl + 1;
     Sfx.buy();
     /* 購買回饋：圖示火花、發光、研究點扣除浮字、成功提示 */
@@ -2613,7 +3114,7 @@ class Game {
       this.floats.push({ x: pos.x, y: pos.y - 26, text: '研究成功!', color: '#b3ffab', life: 0 });
     }
     this.buyGlow[id] = 1.5;
-    this.floats.push({ x: 150, y: 78, text: '-' + price + ' 研究點', color: '#7ef0ff', life: 0 });
+    if (!testFree) this.floats.push({ x: 150, y: 78, text: '-' + price + ' 研究點', color: '#7ef0ff', life: 0 });
     this.toast(item.name + ' 升級至 Lv.' + this.upgrade(id));
     saveState(this);
   }
@@ -2636,9 +3137,10 @@ class Game {
     fl.text('「探索澎湖海域，認識頭足世界」', { size: 16, color: '#cfe9ff', align: 'center', maxW: CFG.W, lh: 24 });
 
     /* 徽章與統計 */
-    const encyCount = Object.keys(this.encyclopedia).length;
+    const testActive = this.test && this.test.active;
+    const encyCount = testActive ? SPECIES.length : Object.keys(this.encyclopedia).length;
     fl.gap(6);
-    fl.text('圖鑑 ' + encyCount + '/' + SPECIES.length + '　研究點 ' + this.points.toLocaleString() + '　保育點 ' + this.conserve + '　徽章 ' + this.badges.length, { size: 15, color: '#e6c7ff', align: 'center', maxW: CFG.W, lh: 22 });
+    fl.text((testActive ? '🧪 測試模式　' : '') + '圖鑑 ' + encyCount + '/' + SPECIES.length + '　研究點 ' + this.testPointsText() + '　保育點 ' + this.conserve + '　徽章 ' + this.badges.length, { size: 15, color: '#e6c7ff', align: 'center', maxW: CFG.W, lh: 22 });
 
     /* 按鈕（由 Flow 提供垂直間距） */
     this.buttons = [];
@@ -2660,21 +3162,28 @@ class Game {
   drawSettings() {
     ctx.fillStyle = 'rgba(4,20,34,0.5)'; ctx.fillRect(0, 0, CFG.W, CFG.H);
     if (this.clearConfirm) { this.drawClearConfirm(); return; }
-    const fl = this.panelFrame(260, 150, CFG.W - 520, 300, '設定');
+    const fl = this.panelFrame(260, 140, CFG.W - 520, 330, '設定');
     fl.text('⚙ 遊戲設定', { size: 20, bold: true, color: '#fff', align: 'center', maxW: fl.w, lh: 28 });
     fl.gap(4);
     this.buttons = [];
     this.addBtn('⛶ 全螢幕模式：' + (isFullscreen() || this.fsPref ? '開' : '關'), CFG.W / 2 - 130, fl.cursor + 10, 260, 48, () => this.toggleFullscreen(), '#1d6fa5');
-    this.addBtn('返回主選單', CFG.W / 2 - 130, fl.cursor + 74, 260, 48, () => { this.state = 'menu'; Sfx.click(); }, '#3a5a8a');
+    /* 測試模式：僅從設定進入（不會出現在主選單） */
+    this.addBtn('🧪 測試模式', CFG.W / 2 - 130, fl.cursor + 68, 260, 48, () => this.openTestMode(), '#6a4fa0');
     /* 清除資料（警示紅色，避免誤觸） */
-    this.addBtn('🗑 清除資料', CFG.W / 2 - 130, fl.cursor + 138, 260, 48, () => {
+    this.addBtn('🗑 清除資料', CFG.W / 2 - 130, fl.cursor + 126, 260, 48, () => {
       this.clearConfirm = true;
-      this.pulses.push({ x: CFG.W / 2, y: fl.cursor + 162, t: 0, max: 0.55 });
+      this.pulses.push({ x: CFG.W / 2, y: fl.cursor + 150, t: 0, max: 0.55 });
       Sfx.deny();
     }, '#c2352a');
+    const backY = fl.cursor + 190;
+    this.addBtn('返回主選單', CFG.W / 2 - 130, backY, 260, 48, () => {
+      this.state = this._returnToPaused ? GameState.PAUSED : 'menu';
+      this._returnToPaused = false;
+      Sfx.click();
+    }, '#3a5a8a');
     this.drawButtons();
     const hint = new UIFlow(0, CFG.H - 40, CFG.W, { pad: 0 });
-    hint.text('全螢幕可於切換後按 Esc 離開 · 此瀏覽器支援時才可使用', { size: 13, color: 'rgba(255,255,255,0.6)', align: 'center', maxW: CFG.W, lh: 18 });
+    hint.text('全螢幕可於切換後按 Esc 離開 · 測試模式為獨立資料，不會污染正式進度', { size: 13, color: 'rgba(255,255,255,0.6)', align: 'center', maxW: CFG.W, lh: 18 });
   }
 
   /* ---------- 清除資料確認視窗 ---------- */
@@ -2748,12 +3257,14 @@ class Game {
     const { ceph, firstTime, pts } = this.cardData;
     const sp = ceph.spec;
     const fl = this.panelFrame(140, 80, CFG.W - 280, 470, '研究紀錄');
-    /* 左側：生物圖示（遊戲內容） */
+    /* 左側：生物圖示（真實素材優先，回退程序繪製） */
     ctx.save();
     ctx.translate(230, 200);
-    const drawC = new Ceph(sp, this, { sizeMul: 1.6, preview: true });
-    drawC.swimT = this.time;
-    drawC.draw(this.time * 0.001);
+    if (!this.drawPhoto(sp.id, 0, 0, 170, 170)) {
+      const drawC = new Ceph(sp, this, { sizeMul: 1.6, preview: true });
+      drawC.swimT = this.time;
+      drawC.draw(this.time * 0.001);
+    }
     ctx.restore();
     /* 右側：統一內容流（固定欄寬 / 行高 / 段落間距，禁止自行算座標） */
     const rx = 330, rw = 470;
@@ -2818,12 +3329,14 @@ class Game {
     const sp = ceph.spec;
     const fl = this.panelFrame(170, 110, CFG.W - 340, 400, '保育選擇');
     fl.text(ceph.isRare ? '你捕獲了一隻稀有的' + sp.name + '！' : '你捕獲了一隻年幼的' + sp.name + '（幼體）！', { size: 24, bold: true, color: ceph.isRare ? '#ffe08a' : '#ffd54d', align: 'center', maxW: fl.w, lh: 34 });
-    /* 生物圖示（遊戲內容） */
+    /* 生物圖示（真實素材優先，回退程序繪製） */
     ctx.save();
     ctx.translate(CFG.W / 2, 250);
-    const drawC = new Ceph(sp, this, { sizeMul: 1.4, isJuvenile: ceph.isJuvenile, isRare: ceph.isRare, preview: true });
-    drawC.swimT = this.time;
-    drawC.draw(this.time * 0.001);
+    if (!this.drawPhoto(sp.id, 0, 0, 150, 150)) {
+      const drawC = new Ceph(sp, this, { sizeMul: 1.4, isJuvenile: ceph.isJuvenile, isRare: ceph.isRare, preview: true });
+      drawC.swimT = this.time;
+      drawC.draw(this.time * 0.001);
+    }
     ctx.restore();
     const tf = new UIFlow(0, 306, CFG.W, { pad: 0 });
     tf.text('牠可能還沒長大，或非常罕見。你該怎麼做？', { size: 15, color: '#cfe9ff', align: 'center', maxW: CFG.W, lh: 22 });
@@ -2931,6 +3444,7 @@ class Game {
       else if (this.state === 'brief') { this.state = 'play'; Sfx.click(); }
       else if (this.state === 'card' && this.cardData) { this.cardData = null; this.state = 'play'; }
       else if (this.state === 'choice' && this.pendingCatch) { this.chooseDefault(); }
+      else if (this.state === 'paused') { this.resumeGame(); }
     }
   }
   chooseDefault() {
@@ -2940,7 +3454,304 @@ class Game {
     this.pendingCatch = null;
     this.showCard(ceph, firstTime, pts);
   }
+
+  /* ============================================================
+     [GameState.PAUSED] 暫停 / ☰ 遊戲中選單
+     ============================================================ */
+  /* 進入暫停：狀態機 → PAUSED；記憶原狀態以便繼續 */
+  openPauseMenu() {
+    if (this.state === GameState.PAUSED) return;
+    this._resumeState = this.state;      // play / brief / clear…
+    this.state = GameState.PAUSED;
+    this.buttons = [];
+    Sfx.click();
+  }
+  resumeGame() {
+    const target = this._resumeState || GameState.PLAYING;
+    this.state = (target === GameState.PAUSED) ? GameState.PLAYING : target;
+    this._resumeState = null;
+    this.buttons = [];
+    Sfx.click();
+  }
+  /* 回首頁（含確認） */
+  requestHome() {
+    this.buttons = [];
+    this._homeConfirm = true;
+    Sfx.click();
+  }
+  goHome() {
+    this._homeConfirm = false;
+    this._resumeState = null;
+    this.exitTestMode(false);            // 若在測試模式，放棄測試結果
+    this.state = GameState.HOME;
+    this.buttons = [];
+    Sfx.click();
+  }
+  drawPauseMenu() {
+    /* 背景仍顯示（凍結） */
+    const fl = this.panelFrame(300, 150, CFG.W - 600, 310, '遊戲選單');
+    fl.text(this._homeConfirm ? '' : '遊戲已暫停', { size: 20, bold: true, color: '#fff', align: 'center', maxW: fl.w, lh: 28 });
+    if (this._homeConfirm) {
+      fl.text('確定要離開目前遊戲嗎？', { size: 18, bold: true, color: '#fff', align: 'center', maxW: fl.w, lh: 26 });
+      fl.text('本關目前進度將不會保留。', { size: 14, color: '#ff9d6e', align: 'center', maxW: fl.w, lh: 20 });
+      fl.gap(6);
+      this.buttons = [];
+      this.addBtn('取消', CFG.W / 2 - 180, fl.cursor + 8, 160, 46, () => { this._homeConfirm = false; Sfx.click(); }, '#3a5a8a');
+      this.addBtn('回首頁', CFG.W / 2 + 20, fl.cursor + 8, 160, 46, () => this.goHome(), '#c2352a');
+      this.drawButtons();
+      return;
+    }
+    fl.gap(4);
+    this.buttons = [];
+    const bw = 260, bh = 44, y0 = fl.cursor + 10, bgap = 52;
+    this.addBtn('▶ 繼續遊戲', CFG.W / 2 - bw / 2, y0, bw, bh, () => this.resumeGame(), '#2a8f4a');
+    this.addBtn('⏸ 暫停遊戲（已暫停）', CFG.W / 2 - bw / 2, y0 + bgap, bw, bh, () => { this.toast('遊戲已暫停', 1.5); Sfx.click(); }, '#3a5a8a');
+    this.addBtn('🏠 回首頁', CFG.W / 2 - bw / 2, y0 + bgap * 2, bw, bh, () => this.requestHome(), '#c2352a');
+    this.addBtn('⚙ 設定', CFG.W / 2 - bw / 2, y0 + bgap * 3, bw, bh, () => this.openSettingsFromPause(), '#1d6fa5');
+    this.drawButtons();
+  }
+  /* 從暫停進入設定：仍保持暫停，離開設定回到 PAUSED（不自動繼續） */
+  openSettingsFromPause() {
+    this.state = GameState.SETTINGS;
+    this._returnToPaused = true;
+    this.buttons = [];
+    Sfx.click();
+  }
+
+  /* ============================================================
+     [GameState.TEST_MODE] 測試模式
+     ============================================================ */
+  openTestMode() {
+    /* 快照正式資料（進入測試時） */
+    this.test.snapshot = {
+      points: this.points, conserve: this.conserve,
+      encyclopedia: Object.assign({}, this.encyclopedia),
+      upgrades: Object.assign({}, this.upgrades),
+      badges: this.badges.slice(),
+      totalCatch: this.totalCatch,
+      levelIndex: this.levelIndex
+    };
+    /* 測試模式的「有效」研究點：最大安全值（runtime override，不寫入存檔） */
+    this.test.researchPoints = Number.MAX_SAFE_INTEGER;
+    this.test.active = true;
+    this.state = GameState.TEST_MODE;
+    this.buttons = [];
+    Sfx.click();
+  }
+  /* 離開測試模式：save=true 才保留測試結果到正式資料 */
+  exitTestMode(save) {
+    if (!this.test.active) return;
+    if (save && this.test.snapshot) {
+      /* 保留目前數值，正式存檔 */
+    } else if (this.test.snapshot) {
+      /* 還原正式資料 */
+      this.points = this.test.snapshot.points;
+      this.conserve = this.test.snapshot.conserve;
+      this.encyclopedia = this.test.snapshot.encyclopedia;
+      this.upgrades = this.test.snapshot.upgrades;
+      this.badges = this.test.snapshot.badges;
+      this.totalCatch = this.test.snapshot.totalCatch;
+      this.levelIndex = this.test.snapshot.levelIndex;
+      saveState(this);
+    }
+    this.test.snapshot = null;
+    this.test.active = false;
+    this.test.debug = false;
+    this.cardData = null;
+    this.pendingCatch = null;
+    this.toasts = [];
+    this.floats = [];
+  }
+  /* 依測試設定組合出一個關卡（LEVELS 模板 + 覆寫） */
+  buildTestLevel() {
+    const cfg = this.test.cfg;
+    const base = LEVELS[cfg.levelIndex] || LEVELS[0];
+    return Object.assign({}, base, {
+      loc: base.loc,
+      tod: cfg.timeOfDay,
+      season: cfg.season,
+      time: cfg.infiniteTime ? 9999 : base.time,
+      timeLimit: cfg.infiniteTime ? 9999 : base.time,
+      mission: Object.assign({}, base.mission, { sid: SPECIES[cfg.speciesIdx].id })
+    });
+  }
+  /* 開始測試：進入遊玩（無限時間/無限點數由旗標控制） */
+  startTest() {
+    this.level = this.buildTestLevel();
+    this.levelIndex = this.test.cfg.levelIndex;
+    this.timeLeft = this.level.time;
+    this.weather = pick(this.level.weather || ['sunny']);
+    this.tide = pick(['high', 'mid', 'low']);
+    this.levelCatch = {};
+    this.creatures = [];
+    this.rocks = [];
+    this.hook = { x: CFG.BOAT_X, y: 0, angle: 0, dir: 1, state: 'idle', line: CFG.ARM_LEN, target: null, liftFail: 0, t: 0, vibT: 0, fxDone: false };
+    this.inkTimer = 0;
+    this.catchCount = 0;
+    this.missionDone = false;
+    this.spawnTimer = 0;
+    this.toasts = [];
+    this.floats = [];
+    Decor.gen(this.level.loc, this.levelIndex * 7919 + 13);
+    this.rocks = Decor.list.filter(d => d.type === 'rock');
+    if (!this.rocks.length) this.rocks = [{ x: CFG.W * 0.3, y: CFG.FLOOR_Y - 20 }, { x: CFG.W * 0.7, y: CFG.FLOOR_Y - 16 }];
+    /* 測試模式立即生成指定物種 */
+    for (let i = 0; i < 5; i++) this.spawnCeph();
+    this.state = GameState.PLAYING;
+    this.buttons = [];
+    Sfx.startWaves();
+    Sfx.boatHum();
+  }
+  /* 立即生成：只產生指定物種 */
+  instantSpawn() {
+    if (this.state !== GameState.PLAYING || !this.test.active) return;
+    for (let i = 0; i < 3; i++) this.spawnCeph();
+    this.toast('已生成指定頭足類 ×3', 2);
+    Sfx.click();
+  }
+  /* 測試模式捕獲：直接將鉤子鉤住第一隻目標 */
+  testGrab() {
+    const c = this.creatures[0];
+    if (!c) { this.toast('目前沒有生物', 2); return; }
+    if (this.hook.state !== 'idle') { this.toast('鉤子忙碌中', 2); return; }
+    this.hook.x = c.x; this.hook.y = c.y;
+    c.attached = true; c.state = 'caught'; c.caughtT = 0;
+    c.caughtLine = this.hook.line;
+    this.hook.state = 'caught'; this.hook.target = c; this.hook.liftFail = 0; this.hook.t = 0; this.hook.fxDone = false;
+    Sfx.catchPop();
+  }
+  /* 測試模式強制成功捕獲：直接進入資訊卡 */
+  testForceCatch() {
+    const c = this.creatures[0];
+    if (!c) { this.toast('目前沒有生物', 2); return; }
+    this.hook.target = null;
+    this.hook.state = 'idle';
+    this.catchSuccess(c);
+    this.toast('已模擬捕獲成功', 2);
+  }
+  /* 測試模式：模擬逃脫（掙扎 → 脫鉤 → 游入海中） */
+  testEscape() {
+    const c = this.hook.target || this.creatures[0];
+    if (!c) { this.toast('目前沒有生物', 2); return; }
+    c.attached = true;
+    c.state = 'struggle';
+    c.struggleT = 0.01;
+    c.escapeTries = 2;
+    this.hook.state = 'struggle';
+    this.hook.target = c;
+    this.toast('已觸發：拖行→掙脫→游入海中', 2.5);
+  }
+  /* 測試模式 Debug Panel */
+  drawDebugPanel() {
+    const L = this.level;
+    const first = this.creatures[0];
+    const sp = first ? first.spec : null;
+    const cfg = this.test.cfg;
+    const lines = [
+      ['Game State', this.state],
+      ['Current Level', (L.levelName || L.name) + ' (#' + this.levelIndex + ')'],
+      ['Current Species', sp ? sp.name : '—'],
+      ['Species State', first ? first.state : '—'],
+      ['Entity Position', first ? Math.round(first.x) + ',' + Math.round(first.y) : '—'],
+      ['Entity Velocity', first ? Math.round(first.escapeVX || 0) + ',' + Math.round(first.escapeVY || 0) : '—'],
+      ['Hook State', this.hook.state],
+      ['Capture State', this.hook.target ? 'attached' : '—'],
+      ['Escape State', first && first.state === 'escape' ? 'escaping' : '—'],
+      ['Current Time', TOD_NAMES[L.tod] + (cfg.infiniteTime ? '（無限）' : ' ' + fmtTime(this.timeLeft))],
+      ['Current Season', SEASON_NAMES[L.season]],
+      ['Current Depth', cfg.depth],
+      ['Spawn Probability', (cfg.probability * 100) + '%']
+    ];
+    ctx.fillStyle = 'rgba(6,22,38,0.85)';
+    ctx.fillRect(560, 92, 388, 18 + lines.length * 18);
+    ctx.strokeStyle = '#7ef0ff'; ctx.lineWidth = 1; ctx.strokeRect(560, 92, 388, 18 + lines.length * 18);
+    let y = 104;
+    ctx.font = '12px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    for (const [k, v] of lines) {
+      ctx.fillStyle = '#7ef0ff'; ctx.fillText(k + '：', 570, y);
+      ctx.fillStyle = '#eaf9ff'; ctx.fillText(String(v), 700, y);
+      y += 18;
+    }
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  }
+  /* 測試模式畫面（設定面板） */
+  drawTestMode() {
+    ctx.fillStyle = 'rgba(4,20,34,0.6)'; ctx.fillRect(0, 0, CFG.W, CFG.H);
+    const cfg = this.test.cfg;
+    const fl = this.panelFrame(200, 40, CFG.W - 400, 540, '測試模式');
+    fl.text('自由調整參數，體驗捕捉流程；離開時可選擇還原或保留。', { size: 14, color: '#a8d8ea', align: 'center', maxW: fl.w, lh: 20 });
+    fl.gap(6);
+    const sp = SPECIES[cfg.speciesIdx];
+    const lv = LEVELS[cfg.levelIndex];
+    const rows = [
+      ['關卡', 'Lv.' + (cfg.levelIndex + 1) + ' ' + (lv.levelName || lv.name), 'levelIndex', LEVELS.length],
+      ['物種', sp.name + '（' + sp.latin + '）', 'speciesIdx', SPECIES.length],
+      ['時間', TOD_NAMES[cfg.timeOfDay], 'timeOfDay', ['day', 'night', 'dusk', 'dawn']],
+      ['季節', SEASON_NAMES[cfg.season], 'season', ['spring', 'summer', 'autumn', 'winter']],
+      ['深度', cfg.depth === 'near' ? '近海' : (cfg.depth === 'mid' ? '中層' : '深海'), 'depth', ['near', 'mid', 'deep']],
+      ['出現機率', Math.round(cfg.probability * 100) + '%', 'probability', [0.25, 0.5, 0.75, 1.0]]
+    ];
+    /* 每列：標籤 + 目前值 + [▼] 切換按鈕 */
+    this.buttons = [];
+    let y = fl.cursor + 4;
+    for (const [label, val, key, opts] of rows) {
+      fl.text(label + '：' + val, { size: 16, color: '#eaf9ff', align: 'center', maxW: fl.w, lh: 22 });
+      this.addBtn('▼', CFG.W / 2 + 150, y, 46, 30, (() => { const k = key, o = opts; return () => {
+        if (k === 'probability') { const idx = o.indexOf(cfg.probability); cfg.probability = o[(idx + 1) % o.length]; }
+        else if (Array.isArray(o)) { const idx = o.indexOf(cfg[k]); cfg[k] = o[(idx + 1) % o.length]; }
+        else cfg[k] = (cfg[k] + 1) % o;
+        Sfx.click();
+      }; })(), '#1d6fa5');
+      y += 30;
+    }
+    fl.gap(6);
+    /* 勾選：無限時間 / 無限研究點 / 無限保育點 */
+    const toggles = [
+      ['無限時間', 'infiniteTime'],
+      ['無限研究點', 'infinitePoints'],
+      ['無限保育點', 'infiniteConserve']
+    ];
+    for (const [label, key] of toggles) {
+      const on = cfg[key];
+      this.addBtn((on ? '☑ ' : '☐ ') + label, CFG.W / 2 - 130, y, 260, 38, () => { cfg[key] = !cfg[key]; Sfx.click(); }, on ? '#2a8f4a' : '#44505a');
+      y += 46;
+    }
+    /* 動作按鈕 */
+    this.addBtn('立即生成', CFG.W / 2 - 280, CFG.H - 96, 170, 46, () => { this.startTest(); this.instantSpawn(); }, '#1d6fa5');
+    this.addBtn('開始測試', CFG.W / 2 - 85, CFG.H - 96, 170, 46, () => this.startTest(), '#2a8f4a');
+    this.addBtn('返回設定', CFG.W / 2 + 110, CFG.H - 96, 170, 46, () => { this.state = GameState.SETTINGS; this.test.active = false; Sfx.click(); }, '#3a5a8a');
+    this.drawButtons();
+  }
+  /* 測試模式：HUD 下方測試工具列 */
+  drawTestTools() {
+    if (!this.test.active || this.state !== GameState.PLAYING) return;
+    const y = CFG.H - 46;
+    this.addBtn('🖥 除錯', 8, y, 82, 32, () => { this.test.debug = !this.test.debug; Sfx.click(); }, '#6a4fa0');
+    this.addBtn('⚡ 生成', 96, y, 82, 32, () => this.instantSpawn(), '#1d6fa5');
+    this.addBtn('🎣 抓取', 184, y, 82, 32, () => this.testGrab(), '#1d6fa5');
+    this.addBtn('✓ 成功捕獲', 272, y, 100, 32, () => this.testForceCatch(), '#2a8f4a');
+    this.addBtn('✗ 模擬逃脫', 378, y, 100, 32, () => this.testEscape(), '#c2352a');
+    this.drawButtons();
+  }
 }
+
+/* 在 Game 上掛載：以真實照片繪製（cover-fit，保持比例、裁切填滿）
+   回傳 true = 已繪製照片；false = 尚未載入，由呼叫端回退程序繪製。 */
+Game.prototype.drawPhoto = function (sid, cx, cy, boxW, boxH) {
+  const img = IMAGES[sid];
+  if (!img || !img._ok || !(img.naturalWidth || img.naturalHeight)) return false;
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height;
+  if (!iw || !ih) return false;
+  const s = Math.max(boxW / iw, boxH / ih);
+  const dw = iw * s, dh = ih * s;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(cx - boxW / 2, cy - boxH / 2, boxW, boxH);
+  ctx.clip();
+  ctx.drawImage(img, cx - dw / 2, cy - dh / 2, dw, dh);
+  ctx.restore();
+  return true;
+};
 
 /* 十六進位色調深淺調整 */
 function shadeHex(hex, f) {
@@ -2965,6 +3776,8 @@ function shadeHex(hex, f) {
 
   const game = new Game();
   window.__game = game;
+
+  loadCephImages();   /* 載入圖鑑 / 資訊小卡用的真實素材影像 */
 
   /* 畫面縮放：依視窗尺寸調整 */
   function resize() {
