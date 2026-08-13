@@ -2115,7 +2115,8 @@ class Game {
     Decor.gen(L.loc, this.levelIndex * 7919 + 13);
     this.rocks = Decor.list.filter(d => d.type === 'rock');
     if (!this.rocks.length) this.rocks = [{ x: CFG.W * 0.3, y: CFG.FLOOR_Y - 20 }, { x: CFG.W * 0.7, y: CFG.FLOOR_Y - 16 }];
-    /* 初始生物 */
+    /* 初始生物：先硬性生成目標物種配額（需求+1，不可被隨機吃掉），再隨機補其他物種 */
+    this.ensureTargetQuota();
     for (let i = 0; i < 6; i++) this.spawnCeph();
     this.pendingCatch = null;
     this.cardData = null;
@@ -2168,6 +2169,74 @@ class Game {
     if (!this.test || !this.test.active) {
       if (inSession && targetSid && chosen.id === targetSid) this.targetSpawned += 1;
     }
+  }
+
+  /* 硬性保證：目標物種至少 spawnCount（需求+1）隻真正出現在場上。
+     完全繞過隨機權重，任何隨機機制都無法把目標名額吃掉。 */
+  ensureTargetQuota() {
+    const L = this.level;
+    if (!L || !L.mission) return;
+    const sid = L.mission.sid;
+    const spec = SPECIES.find(s => s.id === sid);
+    if (!spec) return;
+    const cap = (L.spawnCount !== undefined && L.spawnCount > 0) ? L.spawnCount : ((L.requiredCount || L.mission.n) + 1);
+    let alive = 0;
+    for (const c of this.creatures) if (c.spec && c.spec.id === sid) alive++;
+    let guard = 0;
+    while (alive < cap && guard < 60) {
+      if (!this.spawnTargetDirect(spec)) break;
+      alive++;
+      guard++;
+    }
+  }
+
+  /* 目標可完成性維護：目標被捕捉/逃脫/移除後補生成，確保任何時點場上仍有
+     尚未完成的需求數（多留 1 隻緩衝），關卡永遠不會變成不可能完成。 */
+  maintainTargetQuota() {
+    const L = this.level;
+    if (!L || !L.mission || this.missionDone) return;
+    const sid = L.mission.sid;
+    const spec = SPECIES.find(s => s.id === sid);
+    if (!spec) return;
+    const remaining = (L.mission.n || 1) - (this.levelCatch[sid] || 0);
+    if (remaining <= 0) return;
+    const maxTgt = (L.spawnCount !== undefined && L.spawnCount > 0) ? L.spawnCount : (remaining + 1);
+    const cap = Math.min(maxTgt, remaining + 1);
+    let alive = 0;
+    for (const c of this.creatures) if (c.spec && c.spec.id === sid) alive++;
+    let guard = 0;
+    while (alive < cap && guard < 40) {
+      if (!this.spawnTargetDirect(spec)) break;
+      alive++;
+      guard++;
+    }
+  }
+
+  /* 直接實例化一隻目標個體並加入場景；位置不合適時重試（不降低生成數） */
+  spawnTargetDirect(spec) {
+    const c = new Ceph(spec, this, {});
+    let tries = 0;
+    while (tries < 40 && !this.spotOk(c)) {
+      c.resetPosition();
+      tries++;
+    }
+    this.creatures.push(c);
+    this.postSpawn(spec, true, spec.id);
+    return c;
+  }
+
+  /* 位置有效檢查：不與其他生物/岩礁過度重疊（hide 行為本就要靠岩縫，只檢查生物重疊） */
+  spotOk(c) {
+    const minGap = Math.max(c.size * 0.7, 14);
+    for (const o of this.creatures) {
+      if (dist(c.x, c.y, o.x, o.y) < minGap + o.size * 0.4) return false;
+    }
+    if (c.spec.behavior !== 'hide') {
+      for (const r of this.rocks) {
+        if (dist(c.x, c.y, r.x, r.y) < c.size * 0.55 + 14) return false;
+      }
+    }
+    return true;
   }
 
   removeCeph(c) {
@@ -2287,6 +2356,9 @@ class Game {
       this.spawnCeph();
       this.spawnTimer = rand(1.5, 3.5);
     }
+
+    /* 目標可完成性維護：目標被捕捉/逃脫/移除後補生成，關卡永遠保持可完成 */
+    this.maintainTargetQuota();
 
     /* 聲納 */
     if (this.upgrade('sonar') > 0) {
@@ -3597,6 +3669,8 @@ drawHUD() {
     if (!this.rocks.length) this.rocks = [{ x: CFG.W * 0.3, y: CFG.FLOOR_Y - 20 }, { x: CFG.W * 0.7, y: CFG.FLOOR_Y - 16 }];
     /* 測試模式立即生成指定物種 */
     for (let i = 0; i < 5; i++) this.spawnCeph();
+    /* 硬性保證：測試模式也至少生成 1 隻指定物種（不因 ID/name mismatch 生成 0 隻） */
+    this.ensureTargetQuota();
     this.state = GameState.PLAYING;
     this.buttons = [];
     Sfx.startWaves();
