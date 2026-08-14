@@ -158,14 +158,43 @@ function exitFullscreen() {
   if (fn) fn.call(document);
 }
 
+/* --- 音量偏好（localStorage 記憶，0.0 ~ 1.0） --- */
+const SFX_VOL_KEY = 'penghu_ceph_sfx_v1';
+const BGM_VOL_KEY = 'penghu_ceph_bgm_v1';
+function loadVolPref(k, def) { try { const v = parseFloat(localStorage.getItem(k)); if (isFinite(v)) return clamp(v, 0, 1); } catch (e) { /* 忽略 */ } return def; }
+function saveVolPref(k, v) { try { localStorage.setItem(k, String(clamp(v, 0, 1))); } catch (e) { /* 忽略 */ } }
+
 /* ============================================================
    [模組 2] 音效引擎（Web Audio API 合成，無外部音檔）
    ============================================================ */
 const Sfx = (() => {
   let ctx = null, master = null, noiseBuf = null;
+  let sfxGain = null, bgmGain = null;
   let wavesGain = null, wavesOsc = null, wavesSrc = null;
   let musicTimer = null, reelTimer = null;
   const PENTA = [261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33];
+
+  /* 音量（load.localStorage；各自獨立，事件音效與背景音樂分開控制） */
+  let sfxVol = loadVolPref(SFX_VOL_KEY, 0.9);
+  let bgmVol = loadVolPref(BGM_VOL_KEY, 0.5);
+
+  /* 音效冷卻：避免短時間內連發（300 ~ 800ms），防每個影格觸發造成音效卡痰 */
+  const COOLDOWN = {
+    drop: 0.4, splash: 0.4, catchPop: 0.5, miss: 0.5, escape: 0.6,
+    inkBlast: 0.6, coin: 0.3, buy: 0.4, deny: 0.4, click: 0.3,
+    struggle: 0.7, snap: 0.5, researchChime: 0.9, unlockJingle: 0.9,
+    fanfare: 0.9, boatHum: 0.7, seagull: 1.0
+  };
+  const lastPlayed = {};
+  function okToPlay(key) {
+    if (key && ctx) {
+      const now = ctx.currentTime;
+      const cd = COOLDOWN[key] || 0.3;
+      if (now - (lastPlayed[key] || -1) < cd) return false;
+      lastPlayed[key] = now;
+    }
+    return true;
+  }
 
   function init() {
     if (ctx) return;
@@ -173,8 +202,15 @@ const Sfx = (() => {
     if (!AC) return;
     ctx = new AC();
     master = ctx.createGain();
-    master.gain.value = 0.5;
+    master.gain.value = 1;
     master.connect(ctx.destination);
+    /* 事件音效與背景音樂分流：兩者可獨立調整音量 */
+    sfxGain = ctx.createGain();
+    sfxGain.gain.value = sfxVol * 0.55;
+    sfxGain.connect(master);
+    bgmGain = ctx.createGain();
+    bgmGain.gain.value = bgmVol * 0.5;
+    bgmGain.connect(master);
     /* 建立雜訊 buffer（用於海浪、水花等） */
     const len = ctx.sampleRate * 2;
     noiseBuf = ctx.createBuffer(1, len, ctx.sampleRate);
@@ -182,9 +218,13 @@ const Sfx = (() => {
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
   }
   function resume() { if (ctx && ctx.state === 'suspended') ctx.resume(); }
+  function setSfxVolume(v) { sfxVol = clamp(v, 0, 1); saveVolPref(SFX_VOL_KEY, sfxVol); if (sfxGain) sfxGain.gain.value = sfxVol * 0.55; }
+  function setBgmVolume(v) { bgmVol = clamp(v, 0, 1); saveVolPref(BGM_VOL_KEY, bgmVol); if (bgmGain) bgmGain.gain.value = bgmVol * 0.5; }
+  function getSfxVolume() { return sfxVol; }
+  function getBgmVolume() { return bgmVol; }
 
-  /* 基本音色 */
-  function tone(freq, dur, type, vol, slideTo) {
+  /* 基本音色（bus 參數：'sfx' 事件音效 / 'bgm' 背景音樂） */
+  function tone(freq, dur, type, vol, slideTo, bus) {
     if (!ctx) return;
     const t0 = ctx.currentTime;
     const osc = ctx.createOscillator();
@@ -194,10 +234,10 @@ const Sfx = (() => {
     if (slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo, t0 + dur);
     g.gain.setValueAtTime(vol || 0.2, t0);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    osc.connect(g); g.connect(master);
+    osc.connect(g); g.connect(bus === 'bgm' ? bgmGain : sfxGain);
     osc.start(t0); osc.stop(t0 + dur + 0.02);
   }
-  function noise(dur, filterFreq, vol, sweepTo) {
+  function noise(dur, filterFreq, vol, sweepTo, bus) {
     if (!ctx) return;
     const t0 = ctx.currentTime;
     const src = ctx.createBufferSource();
@@ -209,7 +249,7 @@ const Sfx = (() => {
     const g = ctx.createGain();
     g.gain.setValueAtTime(vol || 0.2, t0);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-    src.connect(f); f.connect(g); g.connect(master);
+    src.connect(f); f.connect(g); g.connect(bus === 'bgm' ? bgmGain : sfxGain);
     src.start(t0); src.stop(t0 + dur + 0.02);
   }
 
@@ -224,22 +264,23 @@ const Sfx = (() => {
     wavesOsc = ctx.createOscillator(); wavesOsc.frequency.value = 0.14;
     const wg = ctx.createGain(); wg.gain.value = 0.05;
     wavesOsc.connect(wg); wg.connect(wavesGain.gain);
-    wavesSrc.connect(f); f.connect(wavesGain); wavesGain.connect(master);
+    wavesSrc.connect(f); f.connect(wavesGain); wavesGain.connect(bgmGain);
     wavesSrc.start(); wavesOsc.start();
     wavesGain.gain.setTargetAtTime(0.12, ctx.currentTime, 1.5);
   }
   function stopWaves() { if (wavesGain) wavesGain.gain.setTargetAtTime(0, ctx.currentTime, 0.4); }
 
-  /* 海鳥叫聲：偶發兩聲尖銳滑音 */
+  /* 海鳥叫聲：偶發兩聲尖銳滑音（背景环境音，走 bgm bus + 冷卻） */
   function seagull() {
+    if (!okToPlay('seagull')) return;
     if (Math.random() > 0.25) return;
     const f = rand(900, 1400);
-    tone(f, 0.25, 'triangle', 0.05, f * 1.35);
-    setTimeout(() => tone(f * 1.2, 0.2, 'triangle', 0.04, f * 0.8), 350);
+    tone(f, 0.25, 'triangle', 0.05, f * 1.35, 'bgm');
+    setTimeout(() => tone(f * 1.2, 0.2, 'triangle', 0.04, f * 0.8, 'bgm'), 350);
   }
 
   /* 收線：週期性喀聲 */
-  function reelTick() { tone(1500 + Math.random() * 300, 0.03, 'square', 0.025); }
+  function reelTick() { if (okToPlay('reelTick')) tone(1500 + Math.random() * 300, 0.03, 'square', 0.025); }
   function startReel() {
     if (reelTimer || !ctx) return;
     reelTick();
@@ -247,53 +288,66 @@ const Sfx = (() => {
   }
   function stopReel() { if (reelTimer) { clearInterval(reelTimer); reelTimer = null; } }
 
-  /* 遊戲事件音效 */
-  function drop() { tone(240, 0.18, 'triangle', 0.12, 120); }
-  function splash() { noise(0.35, 900, 0.25, 200); }
-  function catchPop() { tone(520, 0.12, 'sine', 0.2, 300); tone(760, 0.1, 'sine', 0.15, 500); }
-  function miss() { tone(300, 0.15, 'sine', 0.12, 150); }
-  function escape() { tone(700, 0.2, 'sawtooth', 0.08, 1200); }
-  function inkBlast() { noise(0.5, 600, 0.3, 80); }
-  function coin() { tone(880, 0.08, 'square', 0.06, 1320); }
-  function buy() { tone(700, 0.09, 'square', 0.09); setTimeout(() => tone(1050, 0.14, 'square', 0.09), 90); }
-  function deny() { tone(220, 0.2, 'sawtooth', 0.1, 160); }
-  function click() { tone(500, 0.05, 'triangle', 0.12); }
-  /* 掙扎：快速不規則短音 */
+  /* 遊戲事件音效（皆帶冷卻，避免同幀連發） */
+  function drop() { if (!okToPlay('drop')) return; tone(240, 0.18, 'triangle', 0.12, 120); }
+  function splash() { if (!okToPlay('splash')) return; noise(0.35, 900, 0.25, 200); }
+  function catchPop() {
+    if (!okToPlay('catchPop')) return;
+    tone(520, 0.12, 'sine', 0.2, 300); tone(760, 0.1, 'sine', 0.15, 500);
+  }
+  function miss() { if (!okToPlay('miss')) return; tone(300, 0.15, 'sine', 0.12, 150); }
+  function escape() { if (!okToPlay('escape')) return; tone(700, 0.2, 'sawtooth', 0.08, 1200); }
+  function inkBlast() { if (!okToPlay('inkBlast')) return; noise(0.5, 600, 0.3, 80); }
+  function coin() { if (!okToPlay('coin')) return; tone(880, 0.08, 'square', 0.06, 1320); }
+  function buy() {
+    if (!okToPlay('buy')) return;
+    tone(700, 0.09, 'square', 0.09); setTimeout(() => tone(1050, 0.14, 'square', 0.09), 90);
+  }
+  function deny() { if (!okToPlay('deny')) return; tone(220, 0.2, 'sawtooth', 0.1, 160); }
+  function click() { if (!okToPlay('click')) return; tone(500, 0.05, 'triangle', 0.12); }
+  /* 掙扎：快速不規則短音（冷卻較長，避免拖行時連發） */
   function struggle() {
+    if (!okToPlay('struggle')) return;
     for (let i = 0; i < 6; i++) {
       const f = rand(180, 300);
       setTimeout(() => tone(f, 0.06, 'sawtooth', 0.05, rand(140, 220)), i * 55);
     }
   }
   /* 脫鉤：清脆彈響 */
-  function snap() { tone(1000, 0.05, 'square', 0.08, 320); }
+  function snap() { if (!okToPlay('snap')) return; tone(1000, 0.05, 'square', 0.08, 320); }
 
   /* 研究完成：上行三連音 */
   function researchChime() {
+    if (!okToPlay('researchChime')) return;
     const ns = [523.25, 659.25, 783.99];
     ns.forEach((n, i) => setTimeout(() => tone(n, 0.18, 'triangle', 0.14), i * 120));
   }
   /* 圖鑑解鎖：清脆亮音 */
   function unlockJingle() {
+    if (!okToPlay('unlockJingle')) return;
     const ns = [783.99, 1046.5, 1318.5, 1568];
     ns.forEach((n, i) => setTimeout(() => tone(n, 0.22, 'sine', 0.12), i * 100));
   }
   /* 徽章：大氣四連音 */
   function fanfare() {
+    if (!okToPlay('fanfare')) return;
     const ns = [392, 523.25, 659.25, 783.99];
     ns.forEach((n, i) => setTimeout(() => tone(n, 0.3, 'triangle', 0.16), i * 150));
   }
-  /* 船聲：低沉引擎哼鳴 */
-  function boatHum() { tone(70, 0.8, 'sine', 0.05, 55); }
+  /* 船聲：低沉引擎哼鳴（背景音，走 bgm bus） */
+  function boatHum() {
+    if (!okToPlay('boatHum')) return;
+    tone(70, 0.8, 'sine', 0.05, 55, 'bgm');
+  }
 
-  /* 背景音樂：五聲音階琶音循環 */
+  /* 背景音樂：五聲音階琶音循環（bgm bus） */
   function startMusic() {
     if (musicTimer || !ctx) return;
     let step = 0;
     musicTimer = setInterval(() => {
       const note = PENTA[step % PENTA.length];
-      tone(note, 0.5, 'sine', 0.045);
-      if (step % 4 === 0) tone(note / 2, 0.7, 'sine', 0.04);
+      tone(note, 0.5, 'sine', 0.045, null, 'bgm');
+      if (step % 4 === 0) tone(note / 2, 0.7, 'sine', 0.04, null, 'bgm');
       step++;
     }, 420);
   }
@@ -304,7 +358,8 @@ const Sfx = (() => {
     reelTick, startReel, stopReel,
     drop, splash, catchPop, miss, escape, inkBlast, coin, buy, deny, click, struggle, snap,
     researchChime, unlockJingle, fanfare, boatHum,
-    startMusic, stopMusic
+    startMusic, stopMusic,
+    setSfxVolume, setBgmVolume, getSfxVolume, getBgmVolume
   };
 })();
 
@@ -640,6 +695,90 @@ const SPECIES = [
     escape: 'dash', escapeHint: '吸血鬼魷翻起斗篷般的薄膜，消失在黑暗深海。'
   }
 ];
+
+/* ============================================================
+   [模組 3.2] 物種運動檔 MovementProfile
+   每種頭足類真實的游泳/逃離參數。Ceph 移動 AI 一律以本檔為主
+   （speed / acceleration / turnRate / preferredDepth / depthRange /
+   activityPeriod / schooling / phototaxis / seabedPreference /
+   escapeSpeed / escapeDuration / escapeDistance / escapeProbability /
+   habitat / movementPattern）。
+   ============================================================ */
+const MOVEMENT_DEFAULTS = {
+  speed: 4.0, acceleration: 3.5, turnRate: 2.6, preferredDepth: 0.55, depthRange: 0.5,
+  activity: ['day', 'night', 'dusk', 'dawn'], schooling: false, phototaxis: false,
+  seabed: false, escapeSpeed: 2.0, escapeDuration: 1.6, escapeDistance: 220,
+  escapeProbability: 0.5, habitat: [], pattern: 'hover', approach: 'normal', lure: 0
+};
+const MOVEMENT = {
+  xiaoquan: { speed: 7.0, acceleration: 7, turnRate: 4.5, preferredDepth: 0.5, depthRange: 0.45,
+    activity: ['night', 'dusk', 'dawn', 'day'], schooling: false, phototaxis: true, seabed: false,
+    escapeSpeed: 2.6, escapeDuration: 1.4, escapeDistance: 260, escapeProbability: 0.85,
+    habitat: ['coastal', 'sandy', 'seagrass'], pattern: 'fast', approach: 'fast', lure: 0 },
+  suoguan: { speed: 5.5, acceleration: 4.2, turnRate: 3.0, preferredDepth: 0.5, depthRange: 0.4,
+    activity: ['dusk', 'dawn', 'night', 'day'], schooling: true, phototaxis: true, seabed: false,
+    escapeSpeed: 2.0, escapeDuration: 1.2, escapeDistance: 200, escapeProbability: 0.35,
+    habitat: ['coastal', 'sandy', 'seagrass', 'reef'], pattern: 'school', approach: 'wary', lure: 0.6 },
+  huazhi: { speed: 2.5, acceleration: 1.4, turnRate: 1.2, preferredDepth: 0.75, depthRange: 0.45,
+    activity: ['day', 'dawn', 'dusk'], schooling: false, phototaxis: false, seabed: true,
+    escapeSpeed: 1.8, escapeDuration: 1.9, escapeDistance: 130, escapeProbability: 0.4,
+    habitat: ['sandy', 'coastal', 'harbor'], pattern: 'benthic', approach: 'shy', lure: 0.4 },
+  ruansi: { speed: 4.5, acceleration: 5, turnRate: 3.4, preferredDepth: 0.5, depthRange: 0.35,
+    activity: ['dusk', 'dawn', 'night'], schooling: false, phototaxis: true, seabed: false,
+    escapeSpeed: 2.8, escapeDuration: 1.5, escapeDistance: 240, escapeProbability: 0.55,
+    habitat: ['reef', 'seagrass', 'coastal'], pattern: 'smooth', approach: 'dash', lure: 0.5 },
+  zhangyu: { speed: 2.0, acceleration: 1.2, turnRate: 1.0, preferredDepth: 0.85, depthRange: 0.25,
+    activity: ['night', 'dusk'], schooling: false, phototaxis: false, seabed: true,
+    escapeSpeed: 2.0, escapeDuration: 1.8, escapeDistance: 150, escapeProbability: 0.85,
+    habitat: ['reef', 'harbor', 'intertidal'], pattern: 'crawl', approach: 'hide', lure: 0.3 },
+  wusei: { speed: 3.0, acceleration: 2.2, turnRate: 1.8, preferredDepth: 0.65, depthRange: 0.5,
+    activity: ['day', 'dawn', 'dusk'], schooling: false, phototaxis: false, seabed: true,
+    escapeSpeed: 2.0, escapeDuration: 1.6, escapeDistance: 180, escapeProbability: 0.6,
+    habitat: ['sandy', 'seagrass', 'coastal'], pattern: 'hover', approach: 'shy', lure: 0.3 },
+  duanxiao: { speed: 2.2, acceleration: 1.5, turnRate: 1.1, preferredDepth: 0.78, depthRange: 0.4,
+    activity: ['night', 'dusk'], schooling: false, phototaxis: false, seabed: true,
+    escapeSpeed: 1.9, escapeDuration: 1.8, escapeDistance: 140, escapeProbability: 0.7,
+    habitat: ['intertidal', 'reef', 'harbor'], pattern: 'crawl', approach: 'hide', lure: 0.3 },
+  nini: { speed: 5.0, acceleration: 4.5, turnRate: 3.2, preferredDepth: 0.5, depthRange: 0.4,
+    activity: ['night', 'dusk', 'dawn'], schooling: true, phototaxis: false, seabed: false,
+    escapeSpeed: 2.2, escapeDuration: 1.3, escapeDistance: 210, escapeProbability: 0.6,
+    habitat: ['coastal', 'harbor', 'sandy'], pattern: 'school', approach: 'wary', lure: 0.4 },
+  changwan: { speed: 4.5, acceleration: 4.0, turnRate: 3.0, preferredDepth: 0.55, depthRange: 0.4,
+    activity: ['dusk', 'dawn', 'night'], schooling: true, phototaxis: true, seabed: false,
+    escapeSpeed: 2.3, escapeDuration: 1.4, escapeDistance: 220, escapeProbability: 0.6,
+    habitat: ['coastal', 'reef', 'sandy'], pattern: 'school', approach: 'wary', lure: 0.5 },
+  jiwuzei: { speed: 3.2, acceleration: 2.2, turnRate: 1.6, preferredDepth: 0.62, depthRange: 0.45,
+    activity: ['day', 'dawn', 'dusk'], schooling: false, phototaxis: false, seabed: true,
+    escapeSpeed: 1.8, escapeDuration: 1.6, escapeDistance: 160, escapeProbability: 0.5,
+    habitat: ['sandy', 'coastal', 'seagrass'], pattern: 'benthic', approach: 'shy', lure: 0.4 },
+  rocket: { speed: 6.5, acceleration: 8, turnRate: 4.0, preferredDepth: 0.4, depthRange: 0.35,
+    activity: ['night', 'dusk'], schooling: false, phototaxis: true, seabed: false,
+    escapeSpeed: 3.0, escapeDuration: 1.3, escapeDistance: 300, escapeProbability: 0.85,
+    habitat: ['coastal', 'sandy', 'seagrass'], pattern: 'fast', approach: 'fast', lure: 0.5 },
+  giantoct: { speed: 1.5, acceleration: 0.8, turnRate: 0.8, preferredDepth: 0.85, depthRange: 0.25,
+    activity: ['night', 'dusk'], schooling: false, phototaxis: false, seabed: true,
+    escapeSpeed: 1.6, escapeDuration: 2.0, escapeDistance: 160, escapeProbability: 0.9,
+    habitat: ['reef', 'coastal'], pattern: 'crawl', approach: 'hide', lure: 0.2 },
+  mimic: { speed: 2.5, acceleration: 2.0, turnRate: 1.6, preferredDepth: 0.65, depthRange: 0.4,
+    activity: ['day', 'dawn', 'dusk'], schooling: false, phototaxis: false, seabed: true,
+    escapeSpeed: 2.0, escapeDuration: 1.5, escapeDistance: 170, escapeProbability: 0.5,
+    habitat: ['sandy', 'reef', 'coastal'], pattern: 'stealth', approach: 'sneak', lure: 0.5 },
+  blueoct: { speed: 1.8, acceleration: 1.2, turnRate: 1.0, preferredDepth: 0.72, depthRange: 0.35,
+    activity: ['night', 'dusk'], schooling: false, phototaxis: false, seabed: true,
+    escapeSpeed: 1.7, escapeDuration: 1.7, escapeDistance: 130, escapeProbability: 0.6,
+    habitat: ['reef', 'intertidal'], pattern: 'crawl', approach: 'hide', lure: 0.3 },
+  giantsq: { speed: 8.0, acceleration: 6, turnRate: 3.0, preferredDepth: 0.92, depthRange: 0.12,
+    activity: ['night'], schooling: false, phototaxis: false, seabed: false,
+    escapeSpeed: 2.9, escapeDuration: 2.4, escapeDistance: 360, escapeProbability: 0.92,
+    habitat: ['reef', 'coastal'], pattern: 'deep', approach: 'fast', lure: 0.2 },
+  vampire: { speed: 2.5, acceleration: 1.8, turnRate: 1.4, preferredDepth: 0.95, depthRange: 0.08,
+    activity: ['night'], schooling: false, phototaxis: false, seabed: true,
+    escapeSpeed: 1.9, escapeDuration: 2.2, escapeDistance: 240, escapeProbability: 0.7,
+    habitat: ['reef'], pattern: 'deep', approach: 'sneak', lure: 0.2 }
+};
+function mpOf(sp) { return Object.assign({}, MOVEMENT_DEFAULTS, MOVEMENT[sp.id] || {}); }
+/* 深海限定物種：僅在深海關卡（levelIsDeep）自然出現 */
+const DEEP_SEA = { giantsq: true, vampire: true };
 
 /* ============================================================
    [模組 3.5] 真實素材（Wikimedia Commons 合法授權影像）
@@ -1615,6 +1754,11 @@ class Ceph {
   constructor(spec, game, opts) {
     this.spec = spec;
     this.game = game;
+    /* MovementProfile：每個物種的運動 AI 參數（須在 resetPosition 前建立） */
+    this.mp = mpOf(spec);
+    this.phase = rand(0, 6.28);              // 群游去同步相位
+    this.schoolVX = 0; this.schoolVY = 0;    // 群游轉向力（member，避免每幀分配）
+    this.vx = 0; this.vy = 0;                // 目前速度（加速度趨近目標速度）
     /* 出生位置依深度區間隨機 */
     this.depthMin = spec.depth[0];
     this.depthMax = spec.depth[1];
@@ -1652,6 +1796,7 @@ class Ceph {
     this.escapeStyle = spec.escape || 'dart';
     this.trail = [];          // 殘影
     this.shrink = 1;          // 縮團比例（章魚）
+    this.spd = this.mp.speed * rand(0.8, 1.2);
   }
 
   /* 重置到隨機位置（考慮章魚偏好岩石附近） */
@@ -1664,10 +1809,13 @@ class Ceph {
       if (initial) { this.homeX = r.x; this.homeY = r.y; }
     } else {
       this.x = rand(40, CFG.W - 40);
-      const f = lerp(this.depthMin, this.depthMax, Math.random());
+      /* 依 MovementProfile：偏好深度正態偏佈（仍限制在物種深度區間內） */
+      const dr = Math.max(0.06, this.depthMax - this.depthMin);
+      const f = clamp(this.mp.preferredDepth + rand(-1, 1) * Math.min(dr, this.mp.depthRange) * 0.5, this.depthMin, this.depthMax);
       this.y = lerp(CFG.SEA_Y + 30, CFG.FLOOR_Y - 8, f);
     }
     this.targetX = this.x; this.targetY = this.y;
+    this.ang = Math.random() < 0.5 ? 0 : Math.PI;
   }
 
   /* 更新 AI */
@@ -1725,22 +1873,22 @@ class Ceph {
       const h = g.hook;
       const away = h && h.target === this ? (this.x < h.x ? -1 : 1) : this.dir;
       this.dir = away;
-      /* 依物種逃離方向調整（一律朝海中 / 海底，不得向上） */
+      /* 依物種逃離方向調整（一律朝海中靠外側 / 海底，不得向上） */
       let vx = this.escapeVX, vy = this.escapeVY;
-      if (this.escapeStyle === 'dash') { this.escapeVX = away * this.speed * 2.4; vx = this.escapeVX; vy = 45; }
+      if (this.escapeStyle === 'dash') { this.escapeVX = away * this.spd * this.mp.escapeSpeed * 1.15; vx = this.escapeVX; vy = 45; }
       else if (this.escapeStyle === 'shrink') {
         /* 朝礁岩方向逃走（岩石在海中，方向必為向下/斜下） */
         const r = g.nearestRock(this);
         if (r) {
           const dx = r.x - this.x, dy = r.y - this.y, d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
-          vx = dx / d * this.speed * 2.6;
-          vy = Math.max(0, dy / d * this.speed * 2.6);   /* 章魚：只往礁岩/海底，不向上 */
+          vx = dx / d * this.spd * this.mp.escapeSpeed * 0.9;
+          vy = Math.max(0, dy / d * this.spd * this.mp.escapeSpeed * 0.9);   /* 章魚：只往礁岩/海底，不向上 */
         }
       } else if (this.escapeStyle === 'inkrand') {
         /* 隨機水平方向，但一律向下往海中 */
-        if (this.escapeT > 0.4) { vx = away * this.speed * 1.4; vy = 25; }
+        if (this.escapeT > 0.4) { vx = away * this.spd * this.mp.escapeSpeed * 0.55; vy = 25; }
         else if (!this._randDir) { this._randDir = (Math.random() < 0.5 ? -1 : 1); }
-        if (this._randDir) { vx = this._randDir * this.speed * 2.2; vy = rand(15, 45); }
+        if (this._randDir) { vx = this._randDir * this.spd * this.mp.escapeSpeed * 0.85; vy = rand(15, 45); }
       }
       this.x += vx * dt;
       this.y += vy * dt;
@@ -1766,6 +1914,8 @@ class Ceph {
       this.inkCooldown = 5;
       g.inkTimer = 4;
       Particles.ink(this.x, this.y);
+      /* 防墨裝置：墨汁仍在（粒子可見），但視野遮蔽時間大減 */
+      if (g.upgrade('ink') > 0) g.inkTimer = 1.6;
       Sfx.inkBlast();
       this.fleeFrom(hook.x);
       return;
@@ -1785,23 +1935,84 @@ class Ceph {
       } else this.state = 'swim';
     }
 
-    /* 對鉤子產生警戒：快速物種容易逃跑 */
-    if (hook.state === 'drop' && dToHook < (50 + this.spec.speed * 6) && Math.random() < this.spec.flee * 0.05) {
+    /* 對鉤子產生警戒：依 MovementProfile 逃離機率；聲納降低警覺（可更靠近） */
+    const alertR = (50 + this.spec.speed * 6) / (1 + g.upgrade('sonar') * 0.15);
+    if (hook.state === 'drop' && dToHook < alertR && Math.random() < this.mp.escapeProbability * 0.045 * 4 * dt) {
       this.fleeFrom(hook.x);
       return;
     }
 
-    /* 一般遊動：隨機目標 + 浮動 */
-    if (Math.random() < 0.02 || dist(this.x, this.y, this.targetX, this.targetY) < 20) {
+    /* ----- 移動目標挑選：避鉤警戒用 targetY 隨時可能被吸引覆寫，優先序：趨光 > 趨餌 > 隨機 ----- */
+    const lightOn = this.mp.phototaxis && this.mp.pattern !== 'deep'
+      && g.itemLightOn && g.upgrade('light') > 0
+      && (g.level.tod === 'night' || g.level.tod === 'dusk' || g.level.tod === 'dawn');
+    const baitOn = this.mp.lure > 0 && g.upgrade('bait') > 0
+      && (hook.state === 'drop' || hook.state === 'returning')
+      && dToHook < 230 && dToHook > 20;
+
+    if (lightOn) {
+      const lc = g.lightCenter();
+      if (dist(this.x, this.y, lc.x, lc.y) < 320) {
+        this.targetX = lc.x + Math.sin(this.swimT * 0.9 + this.phase) * 46;
+        this.targetY = lc.y + Math.cos(this.swimT * 0.6 + this.phase) * 14;
+      }
+    } else if (baitOn) {
+      /* 誘餌：緩慢逐步靠近鉤子（非瞬移），接近後略往下避開鉤尖 */
+      this.targetX = hook.x;
+      this.targetY = hook.y + (dToHook < 60 ? 12 : 0);
+    }
+
+    /* 群游（分離 / 凝聚 / 對齊 + 每隻去同步相位，避免全場一致） */
+    if (this.mp.schooling && this.state === 'swim') {
+      let cx = 0, cy = 0, n = 0, sx = 0, sy = 0;
+      for (const o of g.creatures) {
+        if (o === this || o.spec.id !== this.spec.id || o.state !== 'swim') continue;
+        const dx = o.x - this.x, dy = o.y - this.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        if (d > 0.001 && d < this.size * 4.5) {
+          n++; cx += o.x; cy += o.y;
+          if (d < this.size * 2.2) { sx += -dx / d; sy += -dy / d; }
+        }
+      }
+      if (n) {
+        this.schoolVX = (cx / n - this.x) * 0.5 + sx * 5 + Math.sin(this.swimT * 1.7 + this.phase) * 22;
+        this.schoolVY = (cy / n - this.y) * 0.5 + sy * 5 + Math.cos(this.swimT * 1.3 + this.phase) * 12;
+      } else {
+        this.schoolVX = Math.sin(this.swimT + this.phase) * 34;
+        this.schoolVY = Math.cos(this.swimT * 0.8 + this.phase) * 16;
+      }
+    } else {
+      this.schoolVX = 0; this.schoolVY = 0;
+    }
+
+    /* 隨機漫遊目標（含 MovementProfile 偏好深度；趨光/趨餌時不覆寫） */
+    if (!lightOn && !baitOn && (Math.random() < 0.02 || dist(this.x, this.y, this.targetX, this.targetY) < 20)) {
       this.targetX = rand(40, CFG.W - 40);
-      const f = rand(this.depthMin, this.depthMax);
+      const f = clamp(this.mp.preferredDepth + rand(-1, 1) * this.mp.depthRange, this.depthMin, this.depthMax);
       this.targetY = lerp(CFG.SEA_Y + 30, CFG.FLOOR_Y - 8, f);
     }
-    const sp = this.spec.behavior === 'bottom' ? this.speed * 0.5 : this.speed;
-    this.x += clamp(this.targetX - this.x, -sp * dt, sp * dt);
-    this.y += clamp(this.targetY - this.y, -sp * dt * 0.6, sp * dt * 0.6);
-    this.dir = this.targetX > this.x ? 1 : -1;
-    /* 遊動波浪感 */
+
+    /* 平滑轉向 + 加速度逼近（turnRate 限制迴轉速度，不會瞬間 180°） */
+    const tx = this.targetX + this.schoolVX * 0.6;
+    const ty = this.targetY + this.schoolVY * 0.6;
+    const want = Math.atan2(ty - this.y, tx - this.x);
+    let dAng = want - this.ang;
+    while (dAng > Math.PI) dAng -= Math.PI * 2;
+    while (dAng < -Math.PI) dAng += Math.PI * 2;
+    const maxTurn = Math.max(0.4, this.mp.turnRate) * dt;
+    this.ang += clamp(dAng, -maxTurn, maxTurn);
+    this.dir = (Math.cos(this.ang) >= 0) ? 1 : -1;
+
+    const bottom = this.mp.seabed || this.spec.behavior === 'bottom' || this.spec.behavior === 'hide';
+    /* 誘餌接近時稍微提速（被誘餌吸引的興奮游速），讓吸引力在玩法上可見 */
+    const spK = (bottom ? 0.55 : 1) * (baitOn ? 1.5 : 1);
+    const tvx = Math.cos(this.ang) * this.spd * spK;
+    const tvy = Math.sin(this.ang) * this.spd * spK * 0.85;
+    this.vx += (tvx - this.vx) * Math.min(1, this.mp.acceleration * dt);
+    this.vy += (tvy - this.vy) * Math.min(1, this.mp.acceleration * dt);
+    this.x += this.vx * dt;
+    this.y += this.vy * dt;
+    /* 遊動波浪感（細微，保留泳姿） */
     this.y += Math.sin(this.swimT * 2) * 4 * dt;
     this.x += Math.sin(this.swimT * 1.3) * 8 * dt;
     /* 邊界 */
@@ -1810,20 +2021,23 @@ class Ceph {
     if (this.x <= 32 || this.x >= CFG.W - 32) { this.targetX = rand(60, CFG.W - 60); }
   }
 
-  /* 驚慌逃跑 */
+  /* 驚慌逃跑：一律朝海中（外側）+ 往下，永不朝船 / 岸 / 海面 */
   fleeFrom(fx) {
     this.state = 'flee';
-    this.dir = this.x < fx ? -1 : 1;
-    this.targetX = this.x + this.dir * rand(160, 260);
-    this.targetY = this.y - rand(10, 50);
+    const seaDir = this.x < fx ? -1 : 1;
+    this.dir = seaDir;
+    this.targetX = clamp(this.x + seaDir * rand(180, 300), 30, CFG.W - 30);
+    this.targetY = this.y + rand(8, 55);
     /* 以高速逃跑數秒 */
     this.fleeTimer = 1.2;
     Sfx.escape();
   }
 
-  /* 嘗試逃脫鉤子（依 flee 機率）：觸發「拖行→掙扎→脫鉤→逃離」流程 */
+  /* 嘗試逃脫鉤子（依 MovementProfile 逃離機率；spec.flee>=1 視為強制逃脫）：
+     觸發「拖行→掙扎→脫鉤→逃離」流程 */
   tryEscape() {
-    if (Math.random() < this.spec.flee * 0.22) {
+    const p = this.spec.flee >= 1 ? 1 : this.mp.escapeProbability * 0.22;
+    if (Math.random() < p) {
       this.escapeTries++;
       this.state = 'struggle';
       this.struggleT = rand(0.4, 0.7);
@@ -1835,36 +2049,36 @@ class Ceph {
     return false;
   }
 
-  /* 脫鉤後開始逃離（依物種設定方向與速度） */
+  /* 脫鉤後開始逃離（依物種 MovementProfile 設定方向與速度） */
   beginEscape() {
     const g = this.game;
     this.state = 'escape';
     this.attached = false;
-    this.escapeT = 1.6;
+    this.escapeT = this.mp.escapeDuration;
     this._randDir = null;
     this.escapeStyle = this.spec.escape || 'dart';
     const away = this.x < g.hook.x ? -1 : 1;
     this.dir = away;
-    /* 依物種：先噴墨再逃離（一律朝海中 / 海底，不得向上） */
+    /* 依物種：先噴墨再逃離（一律朝海中靠外側 / 海底，不得向上） */
     if (this.escapeStyle === 'ink' || this.escapeStyle === 'inkrand') {
       /* 花枝 / 烏賊：噴墨後朝海中斜下 */
       this.inkCooldown = 4;
       g.inkTimer = Math.max(g.inkTimer, 1.8);   /* 畫面短暫變暗 */
       Particles.ink(this.x, this.y);
       Sfx.inkBlast();
-      this.escapeVX = away * this.speed * 1.2;
+      this.escapeVX = away * this.spd * this.mp.escapeSpeed;
       this.escapeVY = 25;
     } else if (this.escapeStyle === 'shrink') {
       /* 章魚：縮團後朝礁岩（向下）沉入海底 */
-      this.escapeVX = away * this.speed * 1.0;
+      this.escapeVX = away * this.spd * this.mp.escapeSpeed * 0.7;
       this.escapeVY = 30;
     } else if (this.escapeStyle === 'dash') {
-      /* 軟絲：加速游向深水區 */
-      this.escapeVX = away * this.speed * 2.6;
+      /* 軟絲 / 火箭魷：加速游向深水區 */
+      this.escapeVX = away * this.spd * this.mp.escapeSpeed * 1.15;
       this.escapeVY = 45;
     } else {
       /* 小管（wiggle）：斜下方衝刺；白魷（dart）：游向中層 */
-      this.escapeVX = away * this.speed * 2.2;
+      this.escapeVX = away * this.spd * this.mp.escapeSpeed;
       this.escapeVY = rand(15, 45);
     }
     Sfx.snap();
@@ -2125,6 +2339,8 @@ class Game {
     this.missionDone = false;
     this.spawnTimer = 0;
     this.sonarTimer = 0;
+    this.itemLightOn = false;   // 夜間照明燈：遊戲內開關（升級後可用）
+    this.researchFx = 0;        // 研究設備掃描特效計時（捕獲時觸發）
     this.toasts = [];
     this.floats = [];
     this.pulses = [];       // 商店點擊縮放動畫
@@ -2159,6 +2375,8 @@ class Game {
     };
 
     this.sfxOn = true;
+    this.sfxVol = Sfx.getSfxVolume();   // 音效音量 0~1（設定滑桿用）
+    this.bgmVol = Sfx.getBgmVolume();   // 背景音樂音量 0~1（設定滑桿用）
     this.fsPref = loadFsPref();   // 全螢幕偏好（localStorage 記憶）
     this.clearConfirm = false;    // 清除資料確認視窗旗標
     this.fsFade = 0;              // 全螢幕切換淡入動畫
@@ -2183,6 +2401,8 @@ class Game {
     this.missionDone = false;
     this.spawnTimer = 0;
     this.targetSpawned = 0;    // 目標物種已生成數量（每關從 0 起算）
+    this.itemLightOn = false;  // 每關重新關閉夜燈
+    this.researchFx = 0;
     this.toasts = [];
     this.floats = [];
     this.state = 'brief';
@@ -2224,6 +2444,8 @@ class Game {
         }
         if (sp.id === targetSid && this.missionDone) w *= 0.6;               // 任務完成後遞減
         if (L.tod === 'night' && this.upgrade('light') > 0) w *= 1 + this.upgrade('light') * 0.35;
+        /* 深海限定物種：僅在深海關卡自然出現（測試模式可強制指定） */
+        if (DEEP_SEA[sp.id]) w = this.levelIsDeep() ? w * 3.2 : 0;
       }
       if (w > 0.001) wts.push({ sp, w });
     }
@@ -2332,6 +2554,18 @@ class Game {
   shopItem(id) { return SHOP.find(s => s.id === id); }
   shopPrice(item) { return Math.round(item.base + item.step * this.upgrade(item.id)); }
 
+  /* 夜間照明燈光束中心（水中）：船下方、偏中層，讓趨光性頭足類聚集 */
+  lightCenter() {
+    return { x: CFG.BOAT_X + Math.sin(this.time * 0.4) * 18, y: lerp(CFG.SEA_Y + 20, CFG.FLOOR_Y - 14, 0.62) };
+  }
+  /* 目前關卡是否屬深海（決定大王魷 / 吸血鬼魷等深海物種能否出現） */
+  levelIsDeep() {
+    const L = this.level;
+    if (!L) return false;
+    const d = String(L.depth || '');
+    return d.indexOf('深') >= 0 || L.environment === 'deep' || L.environment === 'abyss';
+  }
+
   /* ---------- 升級數值計算 ---------- */
   reelSpeed() {
     return CFG.REEL_SPEED * (1 + this.upgrade('reel') * 0.22);
@@ -2368,6 +2602,7 @@ class Game {
     if (this.fsFade > 0) this.fsFade -= dt;
     if (this.boatShake > 0) this.boatShake -= dt;
     if (this.camShake > 0) this.camShake -= dt;
+    if (this.researchFx > 0) this.researchFx -= dt;
     /* 浮動文字 */
     for (let i = this.floats.length - 1; i >= 0; i--) {
       const f = this.floats[i];
@@ -2514,8 +2749,8 @@ class Game {
     const h = this.hook;
     const c = h.target;
     if (!c) { h.state = 'idle'; h.line = CFG.ARM_LEN; return; }
-    /* 逃脫嘗試：拖行超過 15%~30% 距離後才可能 */
-    if (c.escapeTries < 2 && h.line <= c.escapeAfter && Math.random() < dt * c.spec.flee * 0.5) {
+    /* 逃脫嘗試：拖行超過 15%~30% 距離後才可能（依 MovementProfile 逃離機率） */
+    if (c.escapeTries < 2 && h.line <= c.escapeAfter && Math.random() < dt * c.mp.escapeProbability * 0.5) {
       if (c.tryEscape()) {
         this.toast('「' + c.spec.name + '成功逃脫！」　小知識：' + (c.spec.escapeHint || '受驚的頭足類會迅速逃離。'), 3);
         this.camShake = 0.4;
@@ -2580,6 +2815,11 @@ class Game {
       Particles.catchBurst(CFG.BOAT_X, CFG.BOAT_Y - 20);
       Particles.splash(CFG.BOAT_X, CFG.SEA_Y);
       for (let i = 0; i < 10; i++) Particles.sparkle(CFG.BOAT_X + rand(-30, 30), CFG.BOAT_Y - rand(0, 40), '#7ef0ff');
+      /* 研究設備：捕獲瞬間觸發短暫掃描分析動畫 */
+      if (this.upgrade('gear') > 0) {
+        this.researchFx = 1.2;
+        for (let i = 0; i < 6; i++) Particles.sparkle(CFG.BOAT_X + rand(-40, 40), CFG.BOAT_Y + rand(-20, 10), '#b3ffab');
+      }
       Sfx.researchChime();
     }
     h.t += dt;
@@ -2774,19 +3014,22 @@ class Game {
     /* 夜晚昏暗 */
     if (tod === 'night') {
       const light = this.upgrade('light');
-      const alpha = 0.4 - light * 0.1;
+      let alpha = 0.4 - light * 0.1;
+      /* 夜間照明燈開啟：光照區域外仍暗，但整體壓暗減輕 */
+      if (this.itemLightOn && light > 0) alpha *= 0.45;
       if (alpha > 0) {
         ctx.fillStyle = 'rgba(5,12,45,' + alpha.toFixed(3) + ')';
         ctx.fillRect(0, 0, CFG.W, CFG.H);
       }
     }
-    /* 墨汁視野遮蔽 */
+    /* 墨汁視野遮蔽（防墨裝置：墨汁仍在但視野不會被完全遮蔽） */
     if (this.inkTimer > 0) {
-      const a = Math.min(0.45, this.inkTimer * 0.15);
+      const shield = this.upgrade('ink') > 0;
+      const a = Math.min(0.45, this.inkTimer * 0.15) * (shield ? 0.4 : 1);
       ctx.fillStyle = 'rgba(10,8,18,' + a.toFixed(3) + ')';
       ctx.fillRect(0, 0, CFG.W, CFG.H);
       /* 若防墨裝置已購買，快速消散 */
-      if (this.upgrade('ink') > 0) this.inkTimer = Math.min(this.inkTimer, 0.8);
+      if (shield) this.inkTimer = Math.min(this.inkTimer, 0.8);
     }
     /* 暴風雨 */
     if (this.weather === 'stormy') {
@@ -2824,10 +3067,11 @@ class Game {
       Decor.draw(bt, true);
     }
 
-    /* 船與吊臂、鉤子 */
+    /* 船與吊臂、鉤子 + 道具裝備視覺（夜燈/聲納/捲線器/研究設備） */
     if (!modal && (this.state === 'play' || this.state === 'brief' || this.state === 'clear' || this.state === 'choice')) {
       this.drawBoat();
       this.drawHook();
+      this.drawEquipment();
     }
 
     /* 泡泡與粒子：Modal 時只保留粒子（捕獲噴發 / 按鈕發光），不繪背景泡泡 */
@@ -2841,11 +3085,17 @@ class Game {
     /* 還原相機震動 */
     if (this.camShake > 0) ctx.restore();
 
-    /* 聲納效果 */
+    /* 聲納效果：從船上聲納裝置發出擴張圓 + 掃到生物的定位圈 */
     if (this.state === 'play' && this.sonarTimer < 1 && this.upgrade('sonar') > 0) {
       const p = 1 - this.sonarTimer;
-      ctx.strokeStyle = 'rgba(126,240,255,' + ((1 - p) * 0.7).toFixed(2) + ')';
-      ctx.lineWidth = 2;
+      const fade = (1 - p).toFixed(2);
+      /* 裝置源頭擴張環 */
+      ctx.strokeStyle = 'rgba(126,240,255,' + fade + ')';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(CFG.BOAT_X, CFG.BOAT_Y + 20, Math.max(4, p * 330), 0, 7); ctx.stroke();
+      /* 掃到生物的定位圈 */
+      ctx.strokeStyle = 'rgba(126,240,255,' + (fade * 0.7) + ')';
+      ctx.lineWidth = 1.5;
       for (const c of this.creatures) {
         const r = p * 60;
         ctx.beginPath(); ctx.arc(c.x, c.y, Math.max(2, r), 0, 7); ctx.stroke();
@@ -2999,6 +3249,89 @@ class Game {
     ctx.restore();
   }
 
+  /* ---------- 道具裝備視覺（夜燈 / 聲納 / 捲線器 / 研究設備） ---------- */
+  drawEquipment() {
+    const bx = CFG.BOAT_X, by = CFG.BOAT_Y;
+    /* --- 夜間照明燈：燈架常駐，光束/水面光圈僅開啟時繪製 --- */
+    if (this.upgrade('light') > 0) {
+      ctx.fillStyle = '#4a4a52';
+      ctx.fillRect(bx - 12, by + 24, 24, 6);            // 燈架
+      ctx.fillStyle = '#ffd76e';
+      ctx.beginPath(); ctx.arc(bx, by + 32, 5, 0, 7); ctx.fill();
+      if (this.itemLightOn) {
+        const t = this.time;
+        const lc = this.lightCenter();
+        /* 光錐：從燈具穿過海面進入水中 */
+        const grad = ctx.createLinearGradient(bx, CFG.SEA_Y, bx, CFG.FLOOR_Y);
+        grad.addColorStop(0, 'rgba(255,224,130,0.28)');
+        grad.addColorStop(1, 'rgba(255,210,90,0.06)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.moveTo(bx - 14, CFG.SEA_Y);
+        ctx.lineTo(bx - 34, CFG.FLOOR_Y);
+        ctx.lineTo(bx + 34, CFG.FLOOR_Y);
+        ctx.lineTo(bx + 14, CFG.SEA_Y);
+        ctx.closePath(); ctx.fill();
+        /* 水面光圈（船下） */
+        ctx.save();
+        ctx.globalAlpha = 0.18 + 0.05 * Math.sin(t * 2.2);
+        ctx.fillStyle = '#ffe8a0';
+        ctx.beginPath(); ctx.ellipse(bx, CFG.SEA_Y + 8, 70 + Math.sin(t * 1.6) * 6, 16, 0, 0, 7); ctx.fill();
+        ctx.restore();
+        /* 光心光暈（吸引點） */
+        glow('#ffd76e', 26);
+        ctx.fillStyle = 'rgba(255,215,110,0.16)';
+        ctx.beginPath(); ctx.arc(lc.x, lc.y, 56 + Math.sin(t * 2) * 6, 0, 7); ctx.fill();
+        noGlow();
+        /* 偶發光點粒子 */
+        if (Math.random() < 0.3) Particles.sparkle(lc.x + rand(-40, 40), lc.y + rand(-20, 20), '#ffd76e');
+      }
+    }
+    /* --- 聲納裝置：甲板上的圓盤，發射時亮一下 --- */
+    if (this.upgrade('sonar') > 0) {
+      const on = this.sonarTimer < 1;
+      ctx.fillStyle = '#5a6a7a';
+      ctx.beginPath(); ctx.ellipse(bx - 34, by + 8, 12, 8, 0, 0, 7); ctx.fill();
+      ctx.strokeStyle = on ? '#7ef0ff' : '#3a4a5a'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.ellipse(bx - 34, by + 8, 8, 5, 0, 0, 7); ctx.stroke();
+      if (on) { glow('#7ef0ff', 10); ctx.beginPath(); ctx.arc(bx - 34, by + 8, 6, 0, 7); ctx.stroke(); noGlow(); }
+    }
+    /* --- 高性能捲線器：甲板捲軸，收線時旋轉 --- */
+    if (this.upgrade('reel') > 0) {
+      const spinning = this.hook.state === 'returning' || this.hook.state === 'struggle';
+      const a = spinning ? this.time * 18 : 0.3;
+      ctx.save();
+      ctx.translate(bx + 30, by + 12);
+      ctx.rotate(a);
+      ctx.strokeStyle = '#c8b08a'; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.arc(0, 0, 6, 0, 7); ctx.stroke();
+      ctx.strokeStyle = '#8a6a4a'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-6, 0); ctx.lineTo(6, 0);
+      ctx.moveTo(0, -6); ctx.lineTo(0, 6);
+      ctx.stroke();
+      ctx.restore();
+    }
+    /* --- 研究設備：甲板分析儀，捕獲時掃描動畫 --- */
+    if (this.upgrade('gear') > 0) {
+      ctx.fillStyle = '#3a6a4a';
+      ctx.fillRect(bx - 4, by + 4, 16, 10);
+      ctx.fillStyle = '#b3ffab';
+      ctx.fillRect(bx - 2, by + 6, 12, 4);
+      if (this.researchFx > 0) {
+        const k = 1 - this.researchFx / 1.2;
+        ctx.strokeStyle = 'rgba(179,255,171,' + (0.9 * (1 - k)).toFixed(2) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(bx, by + 16, 10 + k * 70, 0, 7); ctx.stroke();
+        /* 分析進度條 */
+        ctx.fillStyle = '#12324a';
+        ctx.fillRect(bx - 24, by + 26, 48, 6);
+        ctx.fillStyle = '#b3ffab';
+        ctx.fillRect(bx - 24, by + 26, 48 * k, 6);
+      }
+    }
+  }
+
   /* ---------- HUD ---------- */
 drawHUD() {
     /* Header 統一排版：標題 + StatsRow（padding/margin/gap 全部在此計算）
@@ -3050,9 +3383,16 @@ drawHUD() {
     }
   }
 
-  /* 右下角控制按鈕（圖鑑/商店） */
+  /* 右下角控制按鈕（圖鑑/商店）+ 夜間照明燈開關 */
   drawControls() {
     this.buttons = [];
+    if (this.upgrade('light') > 0) {
+      this.addBtn('☀ 夜燈：' + (this.itemLightOn ? '開' : '關'), 8, 68, 116, 34, () => {
+        this.itemLightOn = !this.itemLightOn;
+        this.toast(this.itemLightOn ? '夜間照明燈開啟：趨光性頭足類開始聚集…' : '夜間照明燈關閉', 1.8);
+        Sfx.click();
+      }, this.itemLightOn ? '#b8860b' : '#3a5a8a');
+    }
     this.addBtn('圖鑑', 700, 68, 78, 34, () => this.openEncyclopedia(), '#6a4fa0');
     this.addBtn('商店', 782, 68, 74, 34, () => this.openShop(), '#1d6fa5');
     this.addBtn('☰ 選單', 864, 68, 82, 34, () => this.openPauseMenu(), '#3a5a8a');
@@ -3309,28 +3649,57 @@ drawHUD() {
   drawSettings() {
     ctx.fillStyle = 'rgba(4,20,34,0.5)'; ctx.fillRect(0, 0, CFG.W, CFG.H);
     if (this.clearConfirm) { this.drawClearConfirm(); return; }
-    const fl = this.panelFrame(260, 140, CFG.W - 520, 330, '設定');
+    const fl = this.panelFrame(240, 96, CFG.W - 480, 490, '設定');
     fl.text('⚙ 遊戲設定', { size: 20, bold: true, color: '#fff', align: 'center', maxW: fl.w, lh: 28 });
-    fl.gap(4);
+    fl.gap(6);
     this.buttons = [];
-    this.addBtn('⛶ 全螢幕模式：' + (isFullscreen() || this.fsPref ? '開' : '關'), CFG.W / 2 - 130, fl.cursor + 10, 260, 48, () => this.toggleFullscreen(), '#1d6fa5');
+    this.addBtn('⛶ 全螢幕模式：' + (isFullscreen() || this.fsPref ? '開' : '關'), CFG.W / 2 - 130, fl.cursor + 10, 260, 46, () => this.toggleFullscreen(), '#1d6fa5');
     /* 測試模式：僅從設定進入（不會出現在主選單） */
-    this.addBtn('🧪 測試模式', CFG.W / 2 - 130, fl.cursor + 68, 260, 48, () => this.openTestMode(), '#6a4fa0');
+    this.addBtn('🧪 測試模式', CFG.W / 2 - 130, fl.cursor + 62, 260, 46, () => this.openTestMode(), '#6a4fa0');
     /* 清除資料（警示紅色，避免誤觸） */
-    this.addBtn('🗑 清除資料', CFG.W / 2 - 130, fl.cursor + 126, 260, 48, () => {
+    this.addBtn('🗑 清除資料', CFG.W / 2 - 130, fl.cursor + 114, 260, 46, () => {
       this.clearConfirm = true;
-      this.pulses.push({ x: CFG.W / 2, y: fl.cursor + 150, t: 0, max: 0.55 });
+      this.pulses.push({ x: CFG.W / 2, y: fl.cursor + 136, t: 0, max: 0.55 });
       Sfx.deny();
     }, '#c2352a');
-    const backY = fl.cursor + 190;
-    this.addBtn('返回主選單', CFG.W / 2 - 130, backY, 260, 48, () => {
+    /* 音量滑桿（可拖曳，即時套用，localStorage 記憶） */
+    let sy = fl.cursor + 178;
+    sy = this.settingsSlider(sy, '🔊 音效音量', this.sfxVol, v => { this.sfxVol = v; Sfx.setSfxVolume(v); });
+    sy = this.settingsSlider(sy + 6, '🎵 背景音樂音量', this.bgmVol, v => { this.bgmVol = v; Sfx.setBgmVolume(v); });
+    const backY = sy + 18;
+    this.addBtn('返回主選單', CFG.W / 2 - 130, backY, 260, 46, () => {
       this.state = this._returnToPaused ? GameState.PAUSED : 'menu';
       this._returnToPaused = false;
       Sfx.click();
     }, '#3a5a8a');
     this.drawButtons();
-    const hint = new UIFlow(0, CFG.H - 40, CFG.W, { pad: 0 });
+    const hint = new UIFlow(0, CFG.H - 34, CFG.W, { pad: 0 });
     hint.text('全螢幕可於切換後按 Esc 離開 · 測試模式為獨立資料，不會污染正式進度', { size: 13, color: 'rgba(255,255,255,0.6)', align: 'center', maxW: CFG.W, lh: 18 });
+  }
+
+  /* 音量滑桿（含拖曳）：回傳下一個元件 Y */
+  settingsSlider(y, label, value, apply) {
+    const x = CFG.W / 2 - 130, w = 260;
+    const trackY = y + 20, th = 8;
+    /* 拖曳：mouse down 在滑桿範圍內即即時更新（每幀重繪） */
+    if (this.mouse.down && this.hitRect(x, trackY - 10, w, th + 20)) {
+      apply(clamp((this.mouse.x - x) / w, 0, 1));
+    }
+    ctx.font = 'bold 15px ' + FONT; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.fillStyle = '#d8ecf8';
+    ctx.fillText(label, x, y + 8);
+    ctx.fillStyle = '#ffe08a';
+    ctx.fillText(Math.round(value * 100) + '%', x + w + 10, y + 8);
+    /* 軌道 */
+    ctx.fillStyle = '#12324a';
+    roundRect(x, trackY, w, th, th / 2); ctx.fill();
+    ctx.fillStyle = '#7ef0ff';
+    if (value > 0.001) { roundRect(x, trackY, w * value, th, th / 2); ctx.fill(); }
+    /* 圓鈕 */
+    ctx.fillStyle = '#eaf9ff';
+    ctx.beginPath(); ctx.arc(x + w * value, trackY + th / 2, 7, 0, 7); ctx.fill();
+    ctx.strokeStyle = '#7ef0ff'; ctx.lineWidth = 1.5; ctx.stroke();
+    return y + 50;
   }
 
   /* ---------- 清除資料確認視窗 ---------- */
@@ -3737,6 +4106,8 @@ drawHUD() {
     this.catchCount = 0;
     this.missionDone = false;
     this.spawnTimer = 0;
+    this.itemLightOn = false;
+    this.researchFx = 0;
     this.toasts = [];
     this.floats = [];
     Decor.gen(this.level.loc, this.levelIndex * 7919 + 13);
@@ -3865,6 +4236,24 @@ drawHUD() {
       this.addBtn((on ? '☑ ' : '☐ ') + label, CFG.W / 2 - 130, y, 260, 38, () => { cfg[key] = !cfg[key]; Sfx.click(); }, on ? '#2a8f4a' : '#44505a');
       y += 46;
     }
+    /* 道具快切：一鍵啟用/停用（滿級）。測試結束由快照還原，不污染正式進度 */
+    fl.gap(6);
+    fl.text('道具快切：點一下啟用（滿級）／再點停用', { size: 14, color: '#a8d8ea', align: 'center', maxW: fl.w, lh: 20 });
+    let iy = fl.cursor + 6;
+    for (let i = 0; i < SHOP.length; i++) {
+      const it = SHOP[i];
+      const gx = CFG.W / 2 - 260 + (i % 3) * 175;
+      const gy = iy + Math.floor(i / 3) * 40;
+      const lvl = this.upgrade(it.id);
+      this.addBtn((lvl > 0 ? '☑ ' : '☐ ') + it.name, gx, gy, 168, 34, (() => {
+        const id = it.id, max = it.max;
+        return () => {
+          if (this.upgrade(id) > 0) { this.upgrades[id] = 0; this.toast('已停用 ' + it.name, 1.5); }
+          else { this.upgrades[id] = max; this.toast('已啟用（滿級）' + it.name, 1.5); }
+          Sfx.click();
+        };
+      })(), lvl > 0 ? '#2a8f4a' : '#44505a');
+    }
     /* 動作按鈕 */
     this.addBtn('立即生成', CFG.W / 2 - 280, CFG.H - 96, 170, 46, () => { this.startTest(); this.instantSpawn(); }, '#1d6fa5');
     this.addBtn('開始測試', CFG.W / 2 - 85, CFG.H - 96, 170, 46, () => this.startTest(), '#2a8f4a');
@@ -3957,8 +4346,10 @@ function shadeHex(hex, f) {
     if (ev.code === 'Space') { ev.preventDefault(); game.onKey(true); }
   });
 
-  /* 背景音樂與海浪於首次互動後啟動 */
+  /* 背景音樂與海浪於首次互動後啟動（先 init AudioContext，符合自動播放政策） */
   document.addEventListener('pointerdown', function once() {
+    Sfx.init();
+    Sfx.resume();
     Sfx.startWaves();
     Sfx.startMusic();
     /* 若上次偏好全螢幕，於首次互動時自動進入 */
