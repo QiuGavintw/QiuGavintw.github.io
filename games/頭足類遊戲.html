@@ -315,7 +315,11 @@ const Sfx = (() => {
 const SPECIES = [
   {
     id: 'xiaoquan', name: '白魷（小卷）', latin: 'Uroteuthis duvaucelii',
+    displayName: '白魷（小卷）', scientificName: 'Uroteuthis duvaucelii',
     asset: 'uroteuthis-duvaucelii.jpg',
+    image: 'uroteuthis-duvaucelii.jpg', imageSource: 'Wikimedia Commons',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Uroteuthis_duvaucelii_122342233.jpg',
+    imageLicense: 'CC BY 4.0',
     local: '小卷、噘仔卷', habitat: '近岸淺海', time: '夜間', season: '夏季',
     diet: '小魚、磷蝦、甲殼類幼體',
     feature: '身體半透明、遊速極快，是澎湖夏季夜釣的明星。',
@@ -332,7 +336,11 @@ const SPECIES = [
   },
   {
     id: 'suoguan', name: '小管', latin: 'Uroteuthis edulis',
+    displayName: '小管', scientificName: 'Uroteuthis edulis',
     asset: 'uroteuthis-edulis.jpg',
+    image: 'uroteuthis-edulis.jpg', imageSource: 'iNaturalist',
+    imageSourceUrl: 'https://www.inaturalist.org/observations/69139625',
+    imageLicense: 'CC BY 4.0',
     local: '透抽、真小管', habitat: '近海、海草床', time: '晨昏', season: '春～秋季',
     diet: '小魚、蝦類',
     feature: '體型比白魷大，背部有淡紫色的斑點。',
@@ -349,7 +357,11 @@ const SPECIES = [
   },
   {
     id: 'huazhi', name: '花枝', latin: 'Sepia pharaonis',
+    displayName: '花枝', scientificName: 'Sepia pharaonis',
     asset: 'sepia-pharaonis.jpg',
+    image: 'sepia-pharaonis.jpg', imageSource: 'Wikimedia Commons',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Sepia_pharaonis.jpg',
+    imageLicense: 'CC BY 2.0',
     local: '虎斑烏賊、花枝', habitat: '沙泥淺海', time: '白天', season: '全年（秋冬最肥）',
     diet: '小魚、蝦、螃蟹',
     feature: '重量級選手，體側有一圈波浪狀的鰭，會變換花紋。',
@@ -366,7 +378,11 @@ const SPECIES = [
   },
   {
     id: 'ruansi', name: '軟絲', latin: 'Sepioteuthis lessoniana',
+    displayName: '軟絲', scientificName: 'Sepioteuthis lessoniana',
     asset: 'sepioteuthis-lessoniana.gif',
+    image: 'sepioteuthis-lessoniana.gif', imageSource: 'Wikimedia Commons (video→gif)',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Sepioteuthis_lessoniana_2010.ogv',
+    imageLicense: 'CC BY-SA 3.0',
     local: '軟翅仔、擬烏賊', habitat: '珊瑚礁、岩礁', time: '晨昏', season: '夏季～初秋',
     diet: '小魚、蝦類',
     feature: '全身包覆一圈橢圓形鰭，會以體色變化躲避敵人。',
@@ -383,7 +399,11 @@ const SPECIES = [
   },
   {
     id: 'zhangyu', name: '章魚', latin: 'Octopus vulgaris',
+    displayName: '章魚', scientificName: 'Octopus vulgaris',
     asset: 'octopus-vulgaris.gif',
+    image: 'octopus-vulgaris.gif', imageSource: 'Wikimedia Commons (video→gif)',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Octopus_Vulgaris_-_Poulpe_commun.webm',
+    imageLicense: 'CC BY-SA 4.0',
     local: '真蛸、章魚', habitat: '岩礁', time: '夜晚', season: '全年（秋冬最肥）',
     diet: '螃蟹、貝類',
     feature: '八隻腕足、智慧超群，會鑽進岩縫躲藏。',
@@ -400,7 +420,11 @@ const SPECIES = [
   },
   {
     id: 'wusei', name: '烏賊（金烏賊）', latin: 'Sepia esculenta',
+    displayName: '烏賊（金烏賊）', scientificName: 'Sepia esculenta',
     asset: 'sepia-esculenta.jpg',
+    image: 'sepia-esculenta.jpg', imageSource: 'Wikimedia Commons',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Golden_Cuttlefish_(Sepia_esculenta)_(49152874797).jpg',
+    imageLicense: 'CC BY 2.0',
     local: '墨賊、烏賊', habitat: '沙泥淺海、海草床', time: '白天', season: '秋～冬季',
     diet: '小魚、小蝦',
     feature: '遇到危險會噴出墨汁，掩護自己逃脫。',
@@ -417,6 +441,10 @@ const SPECIES = [
   },
   {
     id: 'duanxiao', name: '短蛸', latin: 'Octopus minor',
+    displayName: '短蛸', scientificName: 'Octopus minor',
+    image: 'octopus-minor.jpg', imageSource: 'Wikimedia Commons',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Long_arm_octopus_(Octopus_minor).jpg',
+    imageLicense: 'CC0',
     local: '短腿仔、小章魚', habitat: '潮間帶、淺岩礁', time: '夜晚', season: '全年',
     diet: '螃蟹、貝類、小型甲殼類',
     feature: '腕短體圓、體色多變，是澎湖潮池常見的小型章魚。',
@@ -433,6 +461,10 @@ const SPECIES = [
   },
   {
     id: 'nini', name: '擬烏賊', latin: 'Loligo japonica',
+    displayName: '擬烏賊', scientificName: 'Loligo japonica',
+    image: 'loliolus-japonica.jpg', imageSource: 'Wikimedia Commons',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Transparent_frame_specimen.jpg',
+    imageLicense: 'CC BY 2.0',
     local: '日本槍魷仔', habitat: '近岸淺海', time: '夜晚', season: '夏季',
     diet: '小魚、磷蝦',
     feature: '小型槍魷，外套膜細長，常結群在近岸游動。',
@@ -449,6 +481,10 @@ const SPECIES = [
   },
   {
     id: 'changwan', name: '長腕鎖管', latin: 'Uroteuthis chinensis',
+    displayName: '長腕鎖管', scientificName: 'Uroteuthis chinensis',
+    image: 'uroteuthis-chinensis.jpg', imageSource: 'Wikimedia Commons',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Specimen_of_Uroteuthis_(Photololigo)_chinensis_in_National_Museum_of_Natural_Science_in_Taiwan.JPG',
+    imageLicense: 'CC BY-SA 3.0',
     local: '大尾、透抽', habitat: '近海、深水', time: '晨昏', season: '春～秋季',
     diet: '小魚、蝦類',
     feature: '體型修長、鰭長達外套膜後半，游速極快。',
@@ -465,6 +501,10 @@ const SPECIES = [
   },
   {
     id: 'jiwuzei', name: '姬烏賊', latin: 'Sepia japonica',
+    displayName: '姬烏賊', scientificName: 'Sepia japonica',
+    image: 'sepiella-japonica.jpg', imageSource: 'Wikimedia Commons',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Sepiella_japonica.jpg',
+    imageLicense: 'CC BY-SA 4.0',
     local: '小墨仔', habitat: '沙泥淺海', time: '白天', season: '秋～冬季',
     diet: '小魚、小蝦',
     feature: '體型小巧的烏賊，殼薄易碎，常在沙底藏身。',
@@ -481,6 +521,10 @@ const SPECIES = [
   },
   {
     id: 'rocket', name: '火箭魷', latin: 'Sthenoteuthis oualaniensis',
+    displayName: '火箭魷', scientificName: 'Sthenoteuthis oualaniensis',
+    image: 'sthenoteuthis-oualaniensis.jpg', imageSource: 'Wikimedia Commons',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Sthenoteuthis_oualaniensis_Egypt_01.jpg',
+    imageLicense: 'CC0',
     local: '火箭小管、菱鰭魷', habitat: '外洋、深水', time: '夜晚', season: '夏季',
     diet: '小魚、浮游動物',
     feature: '全身流線、鰭呈菱形，是推進速度最快的魷類之一。',
@@ -497,6 +541,10 @@ const SPECIES = [
   },
   {
     id: 'giantoct', name: '巨型章魚', latin: 'Enteroctopus dofleini',
+    displayName: '巨型章魚', scientificName: 'Enteroctopus dofleini',
+    image: 'enterocotopus-dofleini.jpg', imageSource: 'Wikimedia Commons',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Giant_Pacific_Octopus_(Octopus_dofleini)_(7007259144).jpg',
+    imageLicense: 'CC BY 2.0',
     local: '太平洋巨章、相撲章魚', habitat: '深岩礁、洞穴', time: '夜晚', season: '全年',
     diet: '螃蟹、龍蝦、大型貝類',
     feature: '可長到數十公斤，是體型最大的章魚，腕展超過 4 公尺。',
@@ -513,6 +561,10 @@ const SPECIES = [
   },
   {
     id: 'mimic', name: '擬態章魚', latin: 'Thaumoctopus mimicus',
+    displayName: '擬態章魚', scientificName: 'Thaumoctopus mimicus',
+    image: 'thaumoctopus-mimicus.jpg', imageSource: 'Wikimedia Commons',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Mimic_octopus_(Thaumoctopus_mimicus)_(14217664448).jpg',
+    imageLicense: 'CC BY-SA 2.0',
     local: '模仿章魚', habitat: '珊瑚礁、泥沙交錯區', time: '白天', season: '全年',
     diet: '小魚、小蝦、螃蟹',
     feature: '能模仿海蛇、比目魚、獅子魚等多種生物的形態與行為。',
@@ -529,6 +581,10 @@ const SPECIES = [
   },
   {
     id: 'blueoct', name: '藍環章魚', latin: 'Hapalochlaena maculosa',
+    displayName: '藍環章魚', scientificName: 'Hapalochlaena maculosa',
+    image: 'hapalochlaena-maculosa.jpg', imageSource: 'Wikimedia Commons',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Hapalochlaena_maculosa_side.jpg',
+    imageLicense: 'CC BY 4.0',
     local: '太平洋藍環章魚', habitat: '潮池、淺礁', time: '夜晚', season: '全年',
     diet: '螃蟹、小蝦、貝類',
     feature: '體型嬌小卻身懷劇毒，受驚時體表會亮起鮮豔的藍色圓環。',
@@ -545,6 +601,10 @@ const SPECIES = [
   },
   {
     id: 'giantsq', name: '大王魷', latin: 'Architeuthis dux',
+    displayName: '大王魷', scientificName: 'Architeuthis dux',
+    image: 'architeuthis-dux.jpg', imageSource: 'Wikimedia Commons',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Architeuthis_dux_specimen_F_74346.jpg',
+    imageLicense: 'CC BY 4.0',
     local: '巨魷、深海大王', habitat: '極深洋底', time: '夜晚', season: '冬季',
     diet: '深海魚、其他魷類',
     feature: '世界上最長的軟體動物之一，成體可達十幾公尺，兩根長腕拖曳如鞭。',
@@ -561,6 +621,10 @@ const SPECIES = [
   },
   {
     id: 'vampire', name: '吸血鬼魷', latin: 'Vampyroteuthis infernalis',
+    displayName: '吸血鬼魷', scientificName: 'Vampyroteuthis infernalis',
+    image: 'vampyroteuthis-infernalis.jpg', imageSource: 'Wikimedia Commons',
+    imageSourceUrl: 'https://commons.wikimedia.org/wiki/File:Pu_-_Vampyroteuthis_infernalis_-_2.jpg',
+    imageLicense: 'CC BY-SA 4.0',
     local: '吸血鬼烏賊', habitat: '深海無光帶', time: '夜晚', season: '全年',
     diet: '海洋雪（有機碎屑）',
     feature: '不是真正的魷魚，腕間有薄膜如斗篷，是遠古的秘密物種。',
@@ -584,14 +648,25 @@ const SPECIES = [
    完整授權明細（author/license/sourceUrl）見 assets/cephalopods/cephalopods.json
    ============================================================ */
 const ASSET_MAP = {
-  suoguan: 'assets/cephalopods/uroteuthis-edulis.jpg',
   xiaoquan: 'assets/cephalopods/uroteuthis-duvaucelii.jpg',
+  suoguan: 'assets/cephalopods/uroteuthis-edulis.jpg',
   huazhi: 'assets/cephalopods/sepia-pharaonis.jpg',
   ruansi: 'assets/cephalopods/sepioteuthis-lessoniana.gif',
   zhangyu: 'assets/cephalopods/octopus-vulgaris.gif',
-  wusei: 'assets/cephalopods/sepia-esculenta.jpg'
+  wusei: 'assets/cephalopods/sepia-esculenta.jpg',
+  duanxiao: 'assets/cephalopods/octopus-minor.jpg',
+  nini: 'assets/cephalopods/loliolus-japonica.jpg',
+  changwan: 'assets/cephalopods/uroteuthis-chinensis.jpg',
+  jiwuzei: 'assets/cephalopods/sepiella-japonica.jpg',
+  rocket: 'assets/cephalopods/sthenoteuthis-oualaniensis.jpg',
+  giantoct: 'assets/cephalopods/enterocotopus-dofleini.jpg',
+  mimic: 'assets/cephalopods/thaumoctopus-mimicus.jpg',
+  blueoct: 'assets/cephalopods/hapalochlaena-maculosa.jpg',
+  giantsq: 'assets/cephalopods/architeuthis-dux.jpg',
+  vampire: 'assets/cephalopods/vampyroteuthis-infernalis.jpg'
 };
 const IMAGES = {};   // { speciesId: HTMLImageElement }
+window.__SPECIES = SPECIES;   /* 供自動化測試 / 除錯使用 */
 window.__ASSET_MAP = ASSET_MAP;   /* 供自動化測試 / 除錯使用 */
 window.__IMAGES = IMAGES;
 function loadCephImages() {
